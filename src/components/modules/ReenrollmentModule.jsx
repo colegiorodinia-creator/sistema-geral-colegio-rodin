@@ -1872,31 +1872,17 @@ export default function ReenrollmentModule() {
                   </h2>
                 </div>
 
-                {/* CAMPO DE CHECK CONVÊNIO LE PERINI */}
-                <div className="p-4 bg-gradient-to-r from-[#F8FAFC] via-[#EEF2FF] to-[#F1F5F9] border-2 border-[#C7D2FE] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                  <div className="flex items-start sm:items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[#4F46E5] text-white flex items-center justify-center shrink-0 font-black text-[13px] shadow-sm">
-                      DLP
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <label htmlFor="chk-le-perini-form" className="font-black text-[14px] text-[#1E293B] cursor-pointer">
-                          Aluno Conveniado Colégio Le Perini (DLP)
-                        </label>
-                        <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-black uppercase ${
-                          formData.isLePerini 
-                            ? 'bg-[#4F46E5] text-white' 
-                            : 'bg-[#E2E8F0] text-[#64748B]'
-                        }`}>
-                          {formData.isLePerini ? 'Convênio Ativo' : 'Não Conveniado'}
-                        </span>
-                      </div>
-                      <p className="text-[12px] text-[#475569] font-medium leading-tight mt-0.5">
-                        {formData.isLePerini 
-                          ? 'Aluno Le Perini: primeira parcela igual a todas as demais parcelas da anuidade.' 
-                          : 'Aluno não Le Perini: a primeira parcela tem valor nominal (sem desconto para ajuda no 13º), mantendo o valor do contrato.'}
-                      </p>
-                    </div>
+                {/* CAMPO DISCRETO: ALUNO LE PERINI */}
+                <div className="flex items-center justify-between px-3.5 py-2.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl transition-all">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="chk-le-perini-form" className="font-bold text-[13px] text-[#1E40AF] cursor-pointer select-none">
+                      Aluno Le Perini
+                    </label>
+                    {formData.isLePerini && (
+                      <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-[#2563EB] text-white">
+                        Ativo
+                      </span>
+                    )}
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">
                     <input
@@ -1913,7 +1899,7 @@ export default function ReenrollmentModule() {
                       }}
                       className="sr-only peer"
                     />
-                    <div className="w-12 h-6 bg-[#CBD5E1] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4F46E5]"></div>
+                    <div className="w-10 h-5 bg-[#CBD5E1] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2563EB]"></div>
                   </label>
                 </div>
 
