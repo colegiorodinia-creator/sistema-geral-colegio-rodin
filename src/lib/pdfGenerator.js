@@ -983,7 +983,10 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   yForm += 10;
   const matInstallments = parseInt(data.materialInstallmentsCount) || 12;
   const matInstallmentVal = (matTotalVal / matInstallments).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const rawStartDue = String(data.materialStartDueDate || '10').trim();
+  let rawStartDue = String(data.materialStartDueDate || '10/01/2027').trim();
+  if (rawStartDue.includes('2026') || rawStartDue.includes('2025')) {
+    rawStartDue = rawStartDue.replace(/202[56]/g, '2027');
+  }
   const startDueStr = rawStartDue.length <= 2 ? `Todo dia ${rawStartDue}` : formatDisplayDate(rawStartDue);
 
   doc.setFont('helvetica', 'normal');
@@ -1020,7 +1023,10 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
 
   // Linha 6: Vencimento das Demais Parcelas
   yForm += 10;
-  const rawEndDue = String(data.materialEndDueDate || '10').trim();
+  let rawEndDue = String(data.materialEndDueDate || '10/12/2027').trim();
+  if (rawEndDue.includes('2026') || rawEndDue.includes('2025')) {
+    rawEndDue = rawEndDue.replace(/202[56]/g, '2027');
+  }
   const endDueStr = rawEndDue.length <= 2 ? `Todo dia ${rawEndDue}` : formatDisplayDate(rawEndDue);
 
   doc.setFont('helvetica', 'normal');

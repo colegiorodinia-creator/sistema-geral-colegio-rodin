@@ -516,8 +516,8 @@ export function AppProvider({ children }) {
   const [activeTab, setActiveTab] = useState('rematricula');
   const [classes, setClasses] = useState(ALL_CLASSES_2027 && ALL_CLASSES_2027.length > 0 ? ALL_CLASSES_2027 : INITIAL_CLASSES);
 
-  // Cache Buster para garantir carregamento dos dados puros da planilha oficial (2027)
-  const DB_VERSION = 'rodin_2027_v9_pure_spreadsheet_reset';
+  // Cache Buster para garantir carregamento dos dados puros da planilha oficial (2027) com vencimentos de material em 2027
+  const DB_VERSION = 'rodin_2027_v10_material_due_dates_2027';
   try {
     if (typeof window !== 'undefined' && localStorage.getItem('rodin_db_version') !== DB_VERSION) {
       localStorage.removeItem('rodin_students');
@@ -549,7 +549,10 @@ export function AppProvider({ children }) {
           return parsed.map(e => ({
             ...e,
             schoolContractStatus: e.schoolContractStatus || (e.status === 'active' || e.status === 'reenrolled' ? 'signed' : 'pending'),
-            materialContractStatus: e.materialContractStatus || (e.status === 'active' || e.status === 'reenrolled' ? 'signed' : 'pending')
+            materialContractStatus: e.materialContractStatus || (e.status === 'active' || e.status === 'reenrolled' ? 'signed' : 'pending'),
+            materialStartDueDate: (e.materialStartDueDate && !e.materialStartDueDate.includes('2026') && !e.materialStartDueDate.includes('2025')) ? e.materialStartDueDate : '2027-01-10',
+            materialEndDueDate: (e.materialEndDueDate && !e.materialEndDueDate.includes('2026') && !e.materialEndDueDate.includes('2025')) ? e.materialEndDueDate : '2027-12-10',
+            materialPaymentMethod: (e.materialPaymentMethod && e.materialPaymentMethod.toLowerCase().includes('cart')) ? 'Cartão de Crédito' : 'Boleto Bancário'
           }));
         }
       }
@@ -825,9 +828,9 @@ export function AppProvider({ children }) {
       materialBuyerCpf: data.materialBuyerCpf || data.guardianCpf || '',
       materialTotalValue: matTotal,
       materialInstallmentsCount: parseInt(data.materialInstallmentsCount || rates.materialInstallmentsCount),
-      materialStartDueDate: data.materialStartDueDate || '2027-02-10',
-      materialEndDueDate: data.materialEndDueDate || '2027-07-10',
-      materialPaymentMethod: data.materialPaymentMethod || 'Boleto Bancário (vencimento dia 10)',
+      materialStartDueDate: data.materialStartDueDate || '2027-01-10',
+      materialEndDueDate: data.materialEndDueDate || '2027-12-10',
+      materialPaymentMethod: (data.materialPaymentMethod && data.materialPaymentMethod.toLowerCase().includes('cart')) ? 'Cartão de Crédito' : 'Boleto Bancário',
       documentSha256
     };
 
@@ -895,9 +898,9 @@ export function AppProvider({ children }) {
       materialBuyerCpf: proposalData.materialBuyerCpf || proposalData.guardianCpf || '',
       materialTotalValue: matTotal,
       materialInstallmentsCount: parseInt(proposalData.materialInstallmentsCount || 6),
-      materialStartDueDate: proposalData.materialStartDueDate || '2027-02-10',
-      materialEndDueDate: proposalData.materialEndDueDate || '2027-07-10',
-      materialPaymentMethod: proposalData.materialPaymentMethod || 'Boleto Bancário (vencimento dia 10)',
+      materialStartDueDate: proposalData.materialStartDueDate || '2027-01-10',
+      materialEndDueDate: proposalData.materialEndDueDate || '2027-12-10',
+      materialPaymentMethod: (proposalData.materialPaymentMethod && proposalData.materialPaymentMethod.toLowerCase().includes('cart')) ? 'Cartão de Crédito' : 'Boleto Bancário',
       // Dados Preliminares (podem ser preenchidos pelo operador ou aguardar o pai)
       guardianName: proposalData.guardianName || '',
       guardianPhone: proposalData.guardianPhone || '',

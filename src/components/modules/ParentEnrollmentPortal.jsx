@@ -259,9 +259,9 @@ export default function ParentEnrollmentPortal({
     materialBuyerCpf: enrollment.materialBuyerCpf || enrollment.guardianCpf || '',
     materialTotalValue: enrollment.materialTotalValue || 5248.80,
     materialInstallmentsCount: enrollment.materialInstallmentsCount || 12,
-    materialStartDueDate: enrollment.materialStartDueDate || '2027-02-10',
-    materialEndDueDate: enrollment.materialEndDueDate || '2027-07-10',
-    materialPaymentMethod: enrollment.materialPaymentMethod || 'Boleto Bancário (vencimento dia 10)',
+    materialStartDueDate: (enrollment.materialStartDueDate && !enrollment.materialStartDueDate.includes('2026') && !enrollment.materialStartDueDate.includes('2025')) ? enrollment.materialStartDueDate : '2027-01-10',
+    materialEndDueDate: (enrollment.materialEndDueDate && !enrollment.materialEndDueDate.includes('2026') && !enrollment.materialEndDueDate.includes('2025')) ? enrollment.materialEndDueDate : '2027-12-10',
+    materialPaymentMethod: (enrollment.materialPaymentMethod && enrollment.materialPaymentMethod.toLowerCase().includes('cart')) ? 'Cartão de Crédito' : 'Boleto Bancário',
     isBuyerSameAsFinancial: true
   });
 
@@ -613,9 +613,9 @@ export default function ParentEnrollmentPortal({
         materialBuyerCpf: maskCPF(parentFormData.materialBuyerCpf || parentFormData.guardianCpf),
         materialTotalValue: typeof parentFormData.materialTotalValue === 'number' ? parentFormData.materialTotalValue : (parseFloat(String(parentFormData.materialTotalValue || enrollment.materialTotalValue || '5248.80').replace(/\./g, '').replace(',', '.')) || 5248.80),
         materialInstallmentsCount: parseInt(parentFormData.materialInstallmentsCount) || enrollment.materialInstallmentsCount || 6,
-        materialStartDueDate: parentFormData.materialStartDueDate || enrollment.materialStartDueDate || '2027-02-10',
-        materialEndDueDate: parentFormData.materialEndDueDate || enrollment.materialEndDueDate || '2027-07-10',
-        materialPaymentMethod: parentFormData.materialPaymentMethod || enrollment.materialPaymentMethod || 'Boleto Bancário (vencimento dia 10)'
+        materialStartDueDate: parentFormData.materialStartDueDate || enrollment.materialStartDueDate || '2027-01-10',
+        materialEndDueDate: parentFormData.materialEndDueDate || enrollment.materialEndDueDate || '2027-12-10',
+        materialPaymentMethod: (parentFormData.materialPaymentMethod && parentFormData.materialPaymentMethod.toLowerCase().includes('cart')) ? 'Cartão de Crédito' : (parentFormData.materialPaymentMethod || enrollment.materialPaymentMethod || 'Boleto Bancário')
       };
 
       const completed = await completeEnrollmentByParent(enrollment.id, fullData, signatureDataUrl);

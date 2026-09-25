@@ -865,9 +865,17 @@ export default function ReenrollmentModule() {
         ? (typeof existingEnrollment.materialInstallmentValue === 'number' ? formatNumberToBRL(existingEnrollment.materialInstallmentValue) : String(existingEnrollment.materialInstallmentValue))
         : materialStd.installmentValue,
       materialInstallmentExtenso: existingEnrollment.materialInstallmentExtenso || materialStd.installmentExtenso,
-      materialStartDueDate: toInputDateFormat(existingEnrollment.materialStartDueDate) || `${targetYear}-01-10`,
-      materialEndDueDate: toInputDateFormat(existingEnrollment.materialEndDueDate) || `${targetYear}-12-10`,
-      materialPaymentMethod: existingEnrollment.materialPaymentMethod || 'Boleto Bancário', 
+      materialStartDueDate: (() => {
+        const d = toInputDateFormat(existingEnrollment.materialStartDueDate);
+        if (!d || d.startsWith('2025') || d.startsWith('2026')) return `${targetYear}-01-10`;
+        return d;
+      })(),
+      materialEndDueDate: (() => {
+        const d = toInputDateFormat(existingEnrollment.materialEndDueDate);
+        if (!d || d.startsWith('2025') || d.startsWith('2026')) return `${targetYear}-12-10`;
+        return d;
+      })(),
+      materialPaymentMethod: (existingEnrollment.materialPaymentMethod && existingEnrollment.materialPaymentMethod.toLowerCase().includes('cart')) ? 'Cartão de Crédito' : 'Boleto Bancário',
       isBuyerSameAsFinancial: existingEnrollment.materialBuyerName 
         ? (existingEnrollment.materialBuyerName === guardianNameVal) 
         : true
@@ -2785,13 +2793,14 @@ export default function ReenrollmentModule() {
                     {/* Forma de Cobrança */}
                     <div className="form-group">
                       <label className="form-label">Forma de Cobrança:</label>
-                      <input
-                        type="text"
-                        value={formData.materialPaymentMethod || 'Boleto Bancário'}
+                      <select
+                        value={formData.materialPaymentMethod && formData.materialPaymentMethod.toLowerCase().includes('cart') ? 'Cartão de Crédito' : 'Boleto Bancário'}
                         onChange={(e) => setFormData({ ...formData, materialPaymentMethod: e.target.value })}
-                        className="form-control font-medium text-[#475569]"
-                        placeholder="Boleto Bancário"
-                      />
+                        className="form-select font-bold text-[#1E293B] cursor-pointer"
+                      >
+                        <option value="Boleto Bancário">Boleto Bancário</option>
+                        <option value="Cartão de Crédito">Cartão de Crédito</option>
+                      </select>
                     </div>
                   </div>
                 </div>
