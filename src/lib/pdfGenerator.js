@@ -360,20 +360,62 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
   const firstVal = firstNum.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const regVal = regNum.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // Coluna Esquerda: Anuidade e Parcelas
-  drawTickField(10.1, 254.9, 116.1, 'Valor Total da Anuidade do Curso:', `R$ ${grossVal}`, { boldValue: true });
+  // 1. Quantidade de Parcelas
+  const instCountLabel = isAvista ? '1 parcela (À Vista)' : `${totalInstallments} parcelas mensais`;
 
-  const instCountLabel = isAvista ? '1 (À Vista)' : `${totalInstallments} parcelas`;
-  drawTickField(10.1, 268.0, 28.0, 'Quant. de Parcelas:', instCountLabel);
-  drawTickField(39.8, 268.0, 41.4, 'Valor da 1ª parcela', `R$ ${firstVal}`);
-  drawTickField(82.9, 268.0, 43.0, 'Valor das Parcelas Restantes*', isAvista ? '—' : `R$ ${regVal}`);
+  // 2. Parcelamento da 1ª Parcela (em até 3x)
+  let firstSplitLabel = `1x de R$ ${firstVal}`;
+  if (is100Discount) {
+    firstSplitLabel = '—';
+  } else if (isAvista) {
+    firstSplitLabel = '1x (À Vista)';
+  } else if (firstSplit > 1 && firstNum > 0) {
+    const splitValNum = firstNum / firstSplit;
+    const splitValStr = splitValNum.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    firstSplitLabel = `${firstSplit}x de R$ ${splitValStr}`;
+  } else {
+    firstSplitLabel = `1x de R$ ${firstVal}`;
+  }
+
+  // 3. Vencimento das cotas da 1ª parcela
+  const rawQuotaDue = String(data.quotaDueDate || data.firstInstallmentDueDate || '15').trim();
+  let firstDueLabel = rawQuotaDue;
+  if (is100Discount) {
+    firstDueLabel = '—';
+  } else if (!firstDueLabel.toLowerCase().includes('dia') && !firstDueLabel.toLowerCase().includes('todo') && firstDueLabel.length <= 4) {
+    firstDueLabel = `Dia ${firstDueLabel}`;
+  }
+
+  // 4. Vencimento das demais parcelas
+  const rawInstDue = String(data.installmentDueDate || '1').trim();
+  let regDueLabel = rawInstDue;
+  if (isAvista || is100Discount) {
+    regDueLabel = '—';
+  } else if (rawInstDue === '1' || rawInstDue === '1º' || rawInstDue.includes('1º')) {
+    regDueLabel = 'Todo dia 1º (primeiro dia útil)';
+  } else if (!regDueLabel.toLowerCase().includes('dia') && !regDueLabel.toLowerCase().includes('todo')) {
+    regDueLabel = `Todo dia ${regDueLabel}`;
+  }
+
+  // Coluna Esquerda: Anuidade, Parcelas e Vencimentos (Aproveitamento inteligente do espaço na mesma linha/estilo)
+  // Linha 1: Valor de Contrato e Número de Parcelas
+  drawTickField(10.1, 251.0, 60.0, 'Valor Total da Anuidade do Curso:', `R$ ${grossVal}`, { boldValue: true, fieldName: 'anuidade_total_curso' });
+  drawTickField(73.0, 251.0, 53.2, 'Quant. de Parcelas:', instCountLabel, { boldValue: true, fieldName: 'anuidade_quant_parcelas' });
+
+  // Linha 2: Tudo da 1ª Parcela (Valor, Parcelamento em até 3x, Vencimento das Cotas)
+  drawTickField(10.1, 262.0, 32.0, 'Valor da 1ª Parcela:', is100Discount ? '—' : `R$ ${firstVal}`, { boldValue: true, fieldName: 'valor_primeira_parcela' });
+  drawTickField(44.5, 262.0, 48.0, 'Parcelamento 1ª Parcela (até 3x):', firstSplitLabel, { boldValue: true, fieldName: 'parcelamento_primeira_parcela' });
+  drawTickField(94.5, 262.0, 31.7, 'Venc. Cotas 1ª Parc.:', firstDueLabel, { boldValue: true, fieldName: 'vencimento_cotas_primeira_parcela' });
+
+  // Linha 3: Demais Parcelas e Vencimento das Demais Parcelas
+  drawTickField(10.1, 273.0, 46.0, 'Valor das Demais Parcelas:*', (isAvista || is100Discount) ? '—' : `R$ ${regVal}`, { boldValue: true, fieldName: 'valor_demais_parcelas' });
+  drawTickField(58.5, 273.0, 67.7, 'Vencimento das Demais Parcelas:', regDueLabel, { boldValue: true, fieldName: 'vencimento_demais_parcelas' });
 
   // Vencimento e Notas
-  const dueDay = String(data.installmentDueDate || '1º (primeiro dia útil do mês)').trim();
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
+  doc.setFontSize(6.8);
   doc.setTextColor(0, 0, 0);
-  doc.text(`* Boletos bancários com vencimento mensal e sucessivo todo dia: ${dueDay.includes('1') ? '1º (primeiro dia útil do mês)' : dueDay}.`, 10.1, 274.5);
+  doc.text('* Boletos bancários com vencimento mensal e sucessivo.', 10.1, 277.5);
 
   // Coluna Direita: Caixa de Observações
   doc.setDrawColor(0, 0, 0);

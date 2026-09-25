@@ -1248,9 +1248,17 @@ export default function EnrollmentModule({ isCreateMode = false }) {
                     <span className="text-[10px] text-[#64748B] block">Valor Parcelas Restantes*:</span>
                     <strong>R$ {formatNumberToBRL(parentEnrollment.regularInstallmentValue)}</strong>
                   </div>
+                  <div>
+                    <span className="text-[10px] text-[#64748B] block">Venc. Cotas 1ª Parc.:</span>
+                    <strong>Dia {parentEnrollment.quotaDueDate || parentEnrollment.firstInstallmentDueDate || '15'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-[#64748B] block">Venc. Demais Parcelas:</span>
+                    <strong>Todo dia {parentEnrollment.installmentDueDate || '1º'}</strong>
+                  </div>
                 </div>
                 <p className="text-[10px] text-[#64748B] pt-1">
-                  * Boleto Bancário com vencimento mensal e sucessivo todo dia: 1º.
+                  * Boleto Bancário com vencimento mensal e sucessivo.
                 </p>
               </div>
 
