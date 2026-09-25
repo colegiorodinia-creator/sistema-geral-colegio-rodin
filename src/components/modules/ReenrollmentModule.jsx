@@ -13,9 +13,11 @@ import {
   FIXED_RATES_2027, 
   getFixedRatesForGrade, 
   getNominalTuitionForGrade, 
-  getStandardMaterialForGrade 
+  getStandardMaterialForGrade,
+  isLePeriniStudent,
+  calculateRodinInstallments
 } from '../../data/fixedRates';
-export { FIXED_RATES_2027, getFixedRatesForGrade, getNominalTuitionForGrade, getStandardMaterialForGrade };
+export { FIXED_RATES_2027, getFixedRatesForGrade, getNominalTuitionForGrade, getStandardMaterialForGrade, isLePeriniStudent, calculateRodinInstallments };
 import { 
   PERCENTAGE_FILTERS, 
   SPREADSHEET_DISCOUNT_DESCRIPTIONS, 
@@ -324,6 +326,9 @@ export default function ReenrollmentModule() {
     paymentDate: new Date().toISOString().split('T')[0],
     paymentNote: '* Boleto Bancário com vencimento mensal e sucessivo todo dia 01 de cada mês.',
 
+    // Convênio Le Perini (DLP)
+    isLePerini: false,
+
     // Pedido de Material Didático (Livraria do Pensador LTDA - CNPJ 43.849.399/0001-92)
     materialBuyerName: '',
     materialBuyerCpf: '',
@@ -339,6 +344,7 @@ export default function ReenrollmentModule() {
   });
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [filterOnlyLePerini, setFilterOnlyLePerini] = useState(false);
   const [isLoadingCep, setIsLoadingCep] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState('saved'); // 'saved' | 'saving'
@@ -743,18 +749,28 @@ export default function ReenrollmentModule() {
     const countInst = initialPlanChoice === '1_avista_5off' ? '1' : initialPlanChoice;
     const countNum = parseInt(countInst) || 13;
     const grossNum = parseBRLToNumber(grossVal);
-    const defaultParcelValue = formatNumberToBRL(countNum > 0 ? (grossNum / countNum) : grossNum);
+    const effectiveNominalNum = nominalNum || (gradeRates.tuitionNominalNum || grossNum);
+    const detectedLePerini = isLePeriniStudent(student, existingEnrollment);
+
+    const { firstInstallment: calcedFirst, regularInstallment: calcedReg } = calculateRodinInstallments(
+      grossNum,
+      effectiveNominalNum,
+      countNum,
+      detectedLePerini
+    );
+    const defaultFirstParcelValue = formatNumberToBRL(calcedFirst);
+    const defaultRegParcelValue = formatNumberToBRL(calcedReg);
 
     const firstVal = is100Discount ? '0,00' : (
       (existingEnrollment.firstInstallmentValue !== undefined && existingEnrollment.firstInstallmentValue !== null && parseBRLToNumber(existingEnrollment.firstInstallmentValue) > 50)
         ? formatNumberToBRL(existingEnrollment.firstInstallmentValue)
-        : defaultParcelValue
+        : defaultFirstParcelValue
     );
 
     const regVal = is100Discount ? '0,00' : (
       (existingEnrollment.regularInstallmentValue !== undefined && existingEnrollment.regularInstallmentValue !== null && parseBRLToNumber(existingEnrollment.regularInstallmentValue) > 50)
         ? formatNumberToBRL(existingEnrollment.regularInstallmentValue)
-        : defaultParcelValue
+        : defaultRegParcelValue
     );
 
     const schoolSigned = existingEnrollment.schoolContractStatus !== undefined
@@ -771,8 +787,8 @@ export default function ReenrollmentModule() {
       : (schoolSigned || materialSigned ? 'partial_signed' : 'pending_reenrollment');
 
     const isCustomDownPayment = existingEnrollment.hasCustomFirstInstallment;
-    const initialFirstVal = is100Discount ? '0,00' : ((!schoolSigned && !isCustomDownPayment) ? defaultParcelValue : firstVal);
-    const initialRegVal = is100Discount ? '0,00' : ((!schoolSigned && !isCustomDownPayment) ? defaultParcelValue : regVal);
+    const initialFirstVal = is100Discount ? '0,00' : ((!schoolSigned && !isCustomDownPayment) ? defaultFirstParcelValue : firstVal);
+    const initialRegVal = is100Discount ? '0,00' : ((!schoolSigned && !isCustomDownPayment) ? defaultRegParcelValue : regVal);
 
     const gState = primaryGuardian.guardianAddressState || primaryGuardian.addressState || existingEnrollment.guardianAddressState || 'SP';
     const gCity = cleanCityName(primaryGuardian.guardianAddressCity || primaryGuardian.addressCity || existingEnrollment.guardianAddressCity || 'Indaiatuba');
@@ -831,6 +847,9 @@ export default function ReenrollmentModule() {
       guardianAddressNeighborhood: primaryGuardian.guardianAddressNeighborhood || primaryGuardian.addressNeighborhood || existingEnrollment.guardianAddressNeighborhood || '',
       guardianAddressState: gState,
       guardianAddressCity: gCity,
+
+      // Convênio Le Perini (DLP)
+      isLePerini: detectedLePerini,
 
       // Financeiro Balder - Oficial 2027 & Histórico 2026
       tuitionNominalTotal: nominalVal,
@@ -896,7 +915,7 @@ export default function ReenrollmentModule() {
   };
 
   // Recálculo automático das parcelas e aplicação de 5% de desconto para À Vista
-  const handleCalculateInstallments = (totalStr, planChoice, customFirstStr) => {
+  const handleCalculateInstallments = (totalStr, planChoice, customFirstStr, isLePeriniOverride) => {
     const total = parseBRLToNumber(totalStr);
 
     if (total <= 0) {
@@ -929,27 +948,25 @@ export default function ReenrollmentModule() {
     }
 
     const count = parseInt(planChoice) || 13;
-    let first = (customFirstStr !== undefined && customFirstStr !== '') 
-      ? parseBRLToNumber(customFirstStr) 
-      : (total / count);
+    const nominalNum = parseBRLToNumber(formData.tuitionNominalTotal) || total;
+    const isLP = isLePeriniOverride !== undefined ? Boolean(isLePeriniOverride) : Boolean(formData.isLePerini);
+    const customFirstNum = (customFirstStr !== undefined && customFirstStr !== '') ? parseBRLToNumber(customFirstStr) : undefined;
 
-    let effectiveFirstStr = customFirstStr;
-    // Bloquear valor maior que o valor com desconto
-    if (first > total) {
-      first = total;
-      effectiveFirstStr = formatNumberToBRL(total);
-    }
-
-    const remainingTotal = Math.max(0, total - first);
-    const regular = count > 1 ? remainingTotal / (count - 1) : 0;
+    const { firstInstallment, regularInstallment } = calculateRodinInstallments(
+      total,
+      nominalNum,
+      count,
+      isLP,
+      customFirstNum
+    );
 
     setFormData(prev => ({
       ...prev,
       tuitionGrossTotal: formatNumberToBRL(total),
       paymentPlanChoice: String(count),
       installmentsCount: String(count),
-      firstInstallmentValue: effectiveFirstStr !== undefined ? effectiveFirstStr : formatNumberToBRL(first),
-      regularInstallmentValue: formatNumberToBRL(regular),
+      firstInstallmentValue: (customFirstStr !== undefined && customFirstStr !== '') ? customFirstStr : formatNumberToBRL(firstInstallment),
+      regularInstallmentValue: formatNumberToBRL(regularInstallment),
       paymentNote: '* Boleto Bancário com vencimento mensal e sucessivo todo dia: 1º.'
     }));
   };
@@ -1073,6 +1090,7 @@ export default function ReenrollmentModule() {
     cocCode: formData.rmNumber,
     name: formData.studentName,
     studentName: formData.studentName,
+    isLePerini: Boolean(formData.isLePerini),
     birthDate: toInputDateFormat(formData.studentBirthDate),
     studentBirthDate: toInputDateFormat(formData.studentBirthDate),
     rgIssueDate: toInputDateFormat(formData.studentRgIssueDate),
@@ -1142,6 +1160,7 @@ export default function ReenrollmentModule() {
 
       // Aluno
       studentName: formData.studentName,
+      isLePerini: Boolean(formData.isLePerini),
       studentGender: formData.studentGender,
       studentBirthDate: formData.studentBirthDate,
       studentBirthCity: cleanCityName(formData.studentBirthCity),
@@ -1538,17 +1557,34 @@ export default function ReenrollmentModule() {
     showToast('Link de assinatura online gerado com sucesso!');
   };
 
-  // Filtragem da Lista de Estudantes por Nome ou RM (Insensível a acentos e maiúsculas/minúsculas)
+  // Filtragem da Lista de Estudantes por Nome ou RM (Insensível a acentos e maiúsculas/minúsculas) e Convênio Le Perini (DLP)
   const cleanQuery = removeAccents(searchQuery);
+  const totalLePeriniCount = students.filter(student => {
+    const rm = student.rmNumber || student.cocCode;
+    const enr = enrollments.find(e => e.studentId === student.id || e.rmNumber === rm);
+    return isLePeriniStudent(student, enr);
+  }).length;
+
   const filteredStudents = selectedStudentIdFilter
     ? students.filter(student => student.id === selectedStudentIdFilter)
-    : (cleanQuery
+    : (filterOnlyLePerini
         ? students.filter(student => {
+            const rm = student.rmNumber || student.cocCode;
+            const enr = enrollments.find(e => e.studentId === student.id || e.rmNumber === rm);
+            const isLP = isLePeriniStudent(student, enr);
+            if (!isLP) return false;
+            if (!cleanQuery) return true;
             const name = removeAccents(student.studentName || student.name || '');
-            const rm = String(student.rmNumber || student.cocCode || '').toLowerCase();
-            return name.includes(cleanQuery) || rm.includes(cleanQuery);
+            const rmStr = String(rm || '').toLowerCase();
+            return name.includes(cleanQuery) || rmStr.includes(cleanQuery);
           })
-        : []);
+        : (cleanQuery
+            ? students.filter(student => {
+                const name = removeAccents(student.studentName || student.name || '');
+                const rm = String(student.rmNumber || student.cocCode || '').toLowerCase();
+                return name.includes(cleanQuery) || rm.includes(cleanQuery);
+              })
+            : []));
 
   // Estatísticas Rápidas
   const totalStudents = students.length;
@@ -1834,6 +1870,51 @@ export default function ReenrollmentModule() {
                   <h2 className="text-[16px] sm:text-[18px] font-black text-[#1E293B]">
                     1.2 - DADOS PESSOAIS E DOCUMENTAÇÃO DO ESTUDANTE
                   </h2>
+                </div>
+
+                {/* CAMPO DE CHECK CONVÊNIO LE PERINI */}
+                <div className="p-4 bg-gradient-to-r from-[#F8FAFC] via-[#EEF2FF] to-[#F1F5F9] border-2 border-[#C7D2FE] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-start sm:items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#4F46E5] text-white flex items-center justify-center shrink-0 font-black text-[13px] shadow-sm">
+                      DLP
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <label htmlFor="chk-le-perini-form" className="font-black text-[14px] text-[#1E293B] cursor-pointer">
+                          Aluno Conveniado Colégio Le Perini (DLP)
+                        </label>
+                        <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-black uppercase ${
+                          formData.isLePerini 
+                            ? 'bg-[#4F46E5] text-white' 
+                            : 'bg-[#E2E8F0] text-[#64748B]'
+                        }`}>
+                          {formData.isLePerini ? 'Convênio Ativo' : 'Não Conveniado'}
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-[#475569] font-medium leading-tight mt-0.5">
+                        {formData.isLePerini 
+                          ? 'Aluno Le Perini: primeira parcela igual a todas as demais parcelas da anuidade.' 
+                          : 'Aluno não Le Perini: a primeira parcela tem valor nominal (sem desconto para ajuda no 13º), mantendo o valor do contrato.'}
+                      </p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      id="chk-le-perini-form"
+                      type="checkbox"
+                      checked={Boolean(formData.isLePerini)}
+                      onChange={(e) => {
+                        const isChecked = e.target.checked;
+                        handleCalculateInstallments(formData.tuitionGrossTotal, formData.paymentPlanChoice, undefined, isChecked);
+                        setFormData(prev => ({
+                          ...prev,
+                          isLePerini: isChecked
+                        }));
+                      }}
+                      className="sr-only peer"
+                    />
+                    <div className="w-12 h-6 bg-[#CBD5E1] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4F46E5]"></div>
+                  </label>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -3362,7 +3443,7 @@ export default function ReenrollmentModule() {
   // =========================================================================
   // MODO 1: TELA INICIAL — BUSCA E LISTA DE ALUNOS PARA REMATRÍCULA
   // =========================================================================
-  const hasSearch = Boolean(searchQuery.trim()) || Boolean(selectedStudentIdFilter);
+  const hasSearch = Boolean(searchQuery.trim()) || Boolean(selectedStudentIdFilter) || filterOnlyLePerini;
 
   return (
     <div className={`w-full flex flex-col items-center transition-all duration-300 ${
@@ -3411,6 +3492,7 @@ export default function ReenrollmentModule() {
               onClick={() => {
                 setSelectedStudentIdFilter(null);
                 setSearchQuery('');
+                setFilterOnlyLePerini(false);
               }}
               className="absolute right-3 top-2.5 p-1 rounded-full text-[#94A3B8] hover:text-[#1E293B] hover:bg-[#F1F5F9] transition-colors"
               title="Limpar busca"
@@ -3418,6 +3500,53 @@ export default function ReenrollmentModule() {
               <X size={16} />
             </button>
           )}
+        </div>
+
+        {/* BOTÃO DE FILTRO RÁPIDO CONVÊNIO LE PERINI */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 pb-1">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setFilterOnlyLePerini(prev => !prev);
+                setSelectedStudentIdFilter(null);
+              }}
+              className={`px-3.5 py-2 rounded-xl font-black text-[12px] flex items-center gap-2 transition-all cursor-pointer shadow-xs border ${
+                filterOnlyLePerini
+                  ? 'bg-[#4F46E5] text-white border-[#4338CA] shadow-indigo-100 ring-2 ring-indigo-300'
+                  : 'bg-white text-[#4F46E5] border-[#C7D2FE] hover:bg-[#EEF2FF]'
+              }`}
+              title="Clique para ver todos os alunos do Convênio Le Perini (DLP)"
+            >
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Alunos Le Perini (DLP)</span>
+              <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
+                filterOnlyLePerini ? 'bg-white/20 text-white' : 'bg-[#E0E7FF] text-[#4338CA]'
+              }`}>
+                {totalLePeriniCount} alunos
+              </span>
+            </button>
+
+            {filterOnlyLePerini && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterOnlyLePerini(false);
+                  setSearchQuery('');
+                }}
+                className="text-[11.5px] font-bold text-[#64748B] hover:text-[#DC2626] transition-colors flex items-center gap-1 cursor-pointer bg-[#F1F5F9] px-2.5 py-1.5 rounded-lg border border-[#CBD5E1]"
+              >
+                <X size={13} />
+                <span>Mostrar todos</span>
+              </button>
+            )}
+          </div>
+
+          <span className="text-[11.5px] text-[#64748B] font-medium hidden sm:inline-block">
+            {filterOnlyLePerini 
+              ? `Exibindo ${filteredStudents.length} estudante(s) com Convênio Le Perini` 
+              : 'Clique no botão acima para listar todos os 287 alunos Le Perini'}
+          </span>
         </div>
 
         {/* Tabela de Alunos com % e Descrição da Planilha */}
@@ -3474,9 +3603,19 @@ export default function ReenrollmentModule() {
                       >
                         {/* 1. Aluno */}
                         <td className="p-3.5 text-left">
-                          <strong className="block text-[#1E293B] font-bold text-[13.5px] select-none" title={`RM: ${rm} • ${student.currentGrade || studentEnrollment?.currentGrade || 'Série 2027'}`}>
-                            {studentFullName}
-                          </strong>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <strong className="text-[#1E293B] font-bold text-[13.5px] select-none" title={`RM: ${rm} • ${student.currentGrade || studentEnrollment?.currentGrade || 'Série 2027'}`}>
+                              {studentFullName}
+                            </strong>
+                            {isLePeriniStudent(student, studentEnrollment) && (
+                              <span 
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-black uppercase bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE] shrink-0 shadow-2xs"
+                                title="Estudante com Convênio Le Perini (DLP) - 1ª parcela igual às demais"
+                              >
+                                Le Perini
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* 2. Responsável Financeiro */}

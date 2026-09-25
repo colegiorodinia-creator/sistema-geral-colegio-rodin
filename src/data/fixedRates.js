@@ -260,3 +260,77 @@ export function getStandardMaterialForGrade(grade, config) {
     installmentExtenso: rates.materialInstallmentExtenso
   };
 }
+
+/**
+ * Identifica se o estudante pertence ao convênio Colégio Le Perini (DLP).
+ * Na planilha oficial de 2027/2026, todos os registros com sigla 'DLP' ou 'Le Perini' são conveniados.
+ */
+export function isLePeriniStudent(student, enrollment) {
+  if (student?.isLePerini !== undefined && student?.isLePerini !== null) {
+    return Boolean(student.isLePerini);
+  }
+  if (enrollment?.isLePerini !== undefined && enrollment?.isLePerini !== null) {
+    return Boolean(enrollment.isLePerini);
+  }
+  const texts = [
+    student?.tipo_desconto_2027,
+    student?.observacao_desconto_2027,
+    student?.desconto_2026_detalhes,
+    enrollment?.tuitionDiscountType,
+    enrollment?.tuitionDiscountReason,
+    enrollment?.discountDescription,
+    enrollment?.notes,
+    enrollment?.observations
+  ].filter(Boolean).join(' ').toUpperCase();
+
+  return texts.includes('DLP') || texts.includes('LE PERINI') || texts.includes('LEPERINI');
+}
+
+/**
+ * Calcula a 1ª parcela e as parcelas restantes da anuidade escolar segundo a regra do Colégio Rodin:
+ * - Se Le Perini (DLP): O valor da 1ª parcela é rigorosamente o mesmo em todas as parcelas (total / parcelas).
+ * - Se NÃO Le Perini: A 1ª parcela é calculada a partir da anuidade nominal cheia sem desconto (nominalTotal / parcelas),
+ *   sem alterar o valor total do contrato, e as demais parcelas absorvem a diferença para custeio do 13º.
+ * 
+ * @param {number} totalContrato - Valor total final do contrato escolar (com desconto)
+ * @param {number} nominalTotal - Valor da anuidade nominal da série (sem desconto)
+ * @param {number} parcelasCount - Quantidade de parcelas (ex: 13, 12, etc.)
+ * @param {boolean} isLePerini - Se o aluno é Le Perini (DLP)
+ * @param {number} [customFirstVal] - Valor opcional customizado para a 1ª parcela
+ * @returns {{ firstInstallment: number, regularInstallment: number }}
+ */
+export function calculateRodinInstallments(totalContrato, nominalTotal, parcelasCount, isLePerini, customFirstVal) {
+  const count = parseInt(parcelasCount) || 13;
+  const total = typeof totalContrato === 'number' ? totalContrato : 0;
+  const nominal = typeof nominalTotal === 'number' && nominalTotal > 0 ? nominalTotal : total;
+
+  if (total <= 0) {
+    return { firstInstallment: 0, regularInstallment: 0 };
+  }
+
+  if (count <= 1) {
+    return { firstInstallment: total, regularInstallment: 0 };
+  }
+
+  // Se o usuário informou um valor customizado explicitamente para a 1ª parcela
+  if (customFirstVal !== undefined && customFirstVal !== null && customFirstVal > 0) {
+    const first = Math.min(total, customFirstVal);
+    const remaining = Math.max(0, total - first);
+    const regular = count > 1 ? (remaining / (count - 1)) : 0;
+    return { firstInstallment: first, regularInstallment: regular };
+  }
+
+  if (isLePerini) {
+    // Aluno Le Perini (DLP): todas as parcelas uniformes
+    const first = total / count;
+    return { firstInstallment: first, regularInstallment: first };
+  }
+
+  // Aluno NÃO Le Perini: 1ª parcela com valor nominal sem desconto (para custeio de 13º)
+  const nominalParcela = nominal / count;
+  const first = Math.min(total, nominalParcela);
+  const remaining = Math.max(0, total - first);
+  const regular = count > 1 ? (remaining / (count - 1)) : 0;
+
+  return { firstInstallment: first, regularInstallment: regular };
+}

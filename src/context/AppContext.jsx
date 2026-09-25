@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ALL_CLASSES_2027, ALL_STUDENTS_2027, ALL_ENROLLMENTS_2027 } from '../data/initialData2027';
-import { FIXED_RATES_2027, getFixedRatesForGrade, DEFAULT_CAMPAIGN_CONFIG, getDynamicRatesForGrade } from '../data/fixedRates';
+import { FIXED_RATES_2027, getFixedRatesForGrade, DEFAULT_CAMPAIGN_CONFIG, getDynamicRatesForGrade, isLePeriniStudent, calculateRodinInstallments } from '../data/fixedRates';
 import { syncEnrollmentToSupabase, fetchProfilesFromSupabase } from '../lib/supabaseStorage';
 
 const AppContext = createContext();
@@ -516,8 +516,8 @@ export function AppProvider({ children }) {
   const [activeTab, setActiveTab] = useState('rematricula');
   const [classes, setClasses] = useState(ALL_CLASSES_2027 && ALL_CLASSES_2027.length > 0 ? ALL_CLASSES_2027 : INITIAL_CLASSES);
 
-  // Cache Buster para garantir carregamento dos dados puros da planilha oficial (2027) com vencimentos de material em 2027
-  const DB_VERSION = 'rodin_2027_v10_material_due_dates_2027';
+  // Cache Buster para garantir tagueamento Le Perini (DLP) e carregamento dos dados puros da planilha oficial (2027)
+  const DB_VERSION = 'rodin_2027_v11_le_perini_tagging';
   try {
     if (typeof window !== 'undefined' && localStorage.getItem('rodin_db_version') !== DB_VERSION) {
       localStorage.removeItem('rodin_students');
@@ -534,10 +534,16 @@ export function AppProvider({ children }) {
       const saved = localStorage.getItem('rodin_students');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 50) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 50) {
+          return parsed.map(s => ({
+            ...s,
+            isLePerini: isLePeriniStudent(s, null)
+          }));
+        }
       }
     } catch (e) {}
-    return (ALL_STUDENTS_2027 && ALL_STUDENTS_2027.length > 0) ? ALL_STUDENTS_2027 : INITIAL_STUDENTS;
+    const base = (ALL_STUDENTS_2027 && ALL_STUDENTS_2027.length > 0) ? ALL_STUDENTS_2027 : INITIAL_STUDENTS;
+    return base.map(s => ({ ...s, isLePerini: isLePeriniStudent(s, null) }));
   });
 
   const [enrollments, setEnrollments] = useState(() => {
@@ -548,6 +554,7 @@ export function AppProvider({ children }) {
         if (Array.isArray(parsed) && parsed.length > 50) {
           return parsed.map(e => ({
             ...e,
+            isLePerini: isLePeriniStudent(null, e),
             schoolContractStatus: e.schoolContractStatus || (e.status === 'active' || e.status === 'reenrolled' ? 'signed' : 'pending'),
             materialContractStatus: e.materialContractStatus || (e.status === 'active' || e.status === 'reenrolled' ? 'signed' : 'pending'),
             materialStartDueDate: (e.materialStartDueDate && !e.materialStartDueDate.includes('2026') && !e.materialStartDueDate.includes('2025')) ? e.materialStartDueDate : '2027-01-10',
@@ -557,7 +564,8 @@ export function AppProvider({ children }) {
         }
       }
     } catch (e) {}
-    return (ALL_ENROLLMENTS_2027 && ALL_ENROLLMENTS_2027.length > 0) ? ALL_ENROLLMENTS_2027 : INITIAL_ENROLLMENTS;
+    const base = (ALL_ENROLLMENTS_2027 && ALL_ENROLLMENTS_2027.length > 0) ? ALL_ENROLLMENTS_2027 : INITIAL_ENROLLMENTS;
+    return base.map(e => ({ ...e, isLePerini: isLePeriniStudent(null, e) }));
   });
 
   const [classroomLogs, setClassroomLogs] = useState(INITIAL_LOGS);
@@ -766,9 +774,10 @@ export function AppProvider({ children }) {
     const rates = getFixedRatesForGrade(data.currentGrade);
     const tuitionGross = typeof data.tuitionGrossTotal === 'number' ? data.tuitionGrossTotal : parseFloat(String(data.tuitionGrossTotal || rates.tuitionNominalNum).replace(/\./g, '').replace(',', '.')) || rates.tuitionNominalNum;
     const countInst = parseInt(data.installmentsCount || rates.tuitionInstallmentsCount);
-    const defaultParc = countInst > 0 ? (tuitionGross / countInst) : tuitionGross;
-    const firstParc = typeof data.firstInstallmentValue === 'number' ? data.firstInstallmentValue : parseFloat(String(data.firstInstallmentValue || defaultParc).replace(/\./g, '').replace(',', '.')) || defaultParc;
-    const regParc = typeof data.regularInstallmentValue === 'number' ? data.regularInstallmentValue : parseFloat(String(data.regularInstallmentValue || defaultParc).replace(/\./g, '').replace(',', '.')) || defaultParc;
+    const isLP = Boolean(data.isLePerini !== undefined ? data.isLePerini : isLePeriniStudent(data));
+    const instCalc = calculateRodinInstallments(tuitionGross, rates.tuitionNominalNum, countInst, isLP, data.firstInstallmentValue);
+    const firstParc = instCalc.firstInstallment;
+    const regParc = instCalc.regularInstallment;
     const matTotal = typeof data.materialTotalValue === 'number' ? data.materialTotalValue : parseFloat(String(data.materialTotalValue || rates.materialTotalNum).replace(/\./g, '').replace(',', '.')) || rates.materialTotalNum;
 
     const newEnrollment = {
@@ -831,6 +840,7 @@ export function AppProvider({ children }) {
       materialStartDueDate: data.materialStartDueDate || '2027-01-10',
       materialEndDueDate: data.materialEndDueDate || '2027-12-10',
       materialPaymentMethod: (data.materialPaymentMethod && data.materialPaymentMethod.toLowerCase().includes('cart')) ? 'Cartão de Crédito' : 'Boleto Bancário',
+      isLePerini: isLP,
       documentSha256
     };
 
@@ -856,15 +866,10 @@ export function AppProvider({ children }) {
       : parseFloat(String(proposalData.tuitionGrossTotal || propRates.tuitionNominalNum).replace(/\./g, '').replace(',', '.')) || propRates.tuitionNominalNum;
 
     const propCount = parseInt(proposalData.installmentsCount || propRates.tuitionInstallmentsCount);
-    const defaultPropParc = propCount > 0 ? (grossTotal / propCount) : grossTotal;
-
-    const firstVal = typeof proposalData.firstInstallmentValue === 'number'
-      ? proposalData.firstInstallmentValue
-      : parseFloat(String(proposalData.firstInstallmentValue || defaultPropParc).replace(/\./g, '').replace(',', '.')) || defaultPropParc;
-
-    const regularVal = typeof proposalData.regularInstallmentValue === 'number'
-      ? proposalData.regularInstallmentValue
-      : parseFloat(String(proposalData.regularInstallmentValue || defaultPropParc).replace(/\./g, '').replace(',', '.')) || defaultPropParc;
+    const isLPProp = Boolean(proposalData.isLePerini !== undefined ? proposalData.isLePerini : isLePeriniStudent(proposalData));
+    const instCalcProp = calculateRodinInstallments(grossTotal, propRates.tuitionNominalNum, propCount, isLPProp, proposalData.firstInstallmentValue);
+    const firstVal = instCalcProp.firstInstallment;
+    const regularVal = instCalcProp.regularInstallment;
 
     const matTotal = typeof proposalData.materialTotalValue === 'number'
       ? proposalData.materialTotalValue
@@ -887,11 +892,12 @@ export function AppProvider({ children }) {
       // Dados Financeiros Fixados pela Escola
       tuitionGrossTotal: grossTotal,
       tuitionDiscountTotal: grossTotal,
-      installmentsCount: parseInt(proposalData.installmentsCount || 13),
+      installmentsCount: propCount,
       firstInstallmentValue: firstVal,
       firstInstallmentSplit: parseInt(proposalData.firstInstallmentSplit) || 1,
       firstInstallmentPaymentMethod: proposalData.firstInstallmentPaymentMethod || 'Cartão de Crédito (até 5x) ou Boleto',
       regularInstallmentValue: regularVal,
+      isLePerini: isLPProp,
       paymentNote: proposalData.paymentNote || '* Boleto Bancário com vencimento mensal e sucessivo todo dia: 1º.',
       // Material Didático (Livraria do Pensador LTDA)
       materialBuyerName: proposalData.materialBuyerName || proposalData.guardianName || '',
