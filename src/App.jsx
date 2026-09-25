@@ -23,6 +23,7 @@ import AdminDashboard from './components/modules/AdminDashboard';
 
 export default function App() {
   const { 
+    currentUser,
     isAuthenticated,
     activeTab, 
     setActiveTab, 
