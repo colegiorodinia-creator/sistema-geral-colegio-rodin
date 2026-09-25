@@ -389,14 +389,11 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
     doc.line(128.0, ly, 200.2, ly);
   });
 
-  // Preenchimento de observações se houver (incluindo menção expressa de Bolsa 100%)
-  let notesContent = data.notes || data.observations || data.discountDescription || data.tuitionDiscountReason || '';
-  if (is100Discount) {
-    if (!notesContent) {
-      notesContent = 'Bolsa Integral 100% na anuidade escolar conforme deliberação da Mantenedora.';
-    } else if (!/100%/i.test(notesContent)) {
-      notesContent = `Bolsa Integral 100% na anuidade escolar. ${notesContent}`.trim();
-    }
+  // Caixa de Observações: campo exclusivo para anotações administrativas manuais
+  // (Regra: NUNCA puxar descrição ou motivo de desconto para este campo)
+  let notesContent = '';
+  if (data.adminNotes || data.customNotes || data.manualNotes) {
+    notesContent = String(data.adminNotes || data.customNotes || data.manualNotes || '').trim();
   }
 
   if (isInteractive) {
