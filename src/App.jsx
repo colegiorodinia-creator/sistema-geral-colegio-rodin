@@ -131,7 +131,6 @@ export default function App() {
             <Menu size={18} />
             <span>Menu</span>
           </button>
-          <span className="text-[12px] font-black text-[#F45206]">Colégio Rodin</span>
         </div>
 
         {/* Conteúdo Dinâmico Scrollável */}

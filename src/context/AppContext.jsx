@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ALL_CLASSES_2027, ALL_STUDENTS_2027, ALL_ENROLLMENTS_2027 } from '../data/initialData2027';
 import { FIXED_RATES_2027, getFixedRatesForGrade, DEFAULT_CAMPAIGN_CONFIG, getDynamicRatesForGrade } from '../data/fixedRates';
-import { syncEnrollmentToSupabase } from '../lib/supabaseStorage';
+import { syncEnrollmentToSupabase, fetchProfilesFromSupabase } from '../lib/supabaseStorage';
 
 const AppContext = createContext();
 
@@ -391,10 +391,109 @@ const INITIAL_QUESTIONS = [
 ];
 
 export function AppProvider({ children }) {
-  const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('rodin_current_user');
-    return saved ? JSON.parse(saved) : PRESET_USERS[0];
+  const [users, setUsers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('rodin_all_users');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return PRESET_USERS;
   });
+
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('rodin_current_user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.id) {
+          // Checar se rodin_all_users possui versão com avatar atualizado
+          const allSaved = localStorage.getItem('rodin_all_users');
+          if (allSaved) {
+            const allParsed = JSON.parse(allSaved);
+            const found = allParsed.find(u => u.id === parsed.id || (u.email && u.email.toLowerCase() === parsed.email?.toLowerCase()));
+            if (found && found.avatar) {
+              return { ...parsed, avatar: found.avatar, name: found.name || parsed.name };
+            }
+          }
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return PRESET_USERS[0];
+  });
+
+  // Função para sincronizar perfis atualizados diretamente da tabela public.profiles do Supabase
+  const refreshUsersFromSupabase = async () => {
+    try {
+      const dbProfiles = await fetchProfilesFromSupabase();
+      if (dbProfiles && Array.isArray(dbProfiles) && dbProfiles.length > 0) {
+        setUsers(prevUsers => {
+          const updated = prevUsers.map(u => {
+            const match = dbProfiles.find(p => p.id === u.id || (p.email && p.email.toLowerCase() === (u.email || '').toLowerCase()));
+            if (match && match.avatar_url) {
+              return {
+                ...u,
+                name: match.name || u.name,
+                email: match.email || u.email,
+                avatar: match.avatar_url
+              };
+            }
+            return u;
+          });
+          try {
+            localStorage.setItem('rodin_all_users', JSON.stringify(updated));
+          } catch (e) {}
+          return updated;
+        });
+
+        // Sincronizar o usuário atualmente logado caso a foto dele tenha mudado no Supabase
+        setCurrentUser(curr => {
+          if (!curr) return curr;
+          const match = dbProfiles.find(p => p.id === curr.id || (p.email && p.email.toLowerCase() === (curr.email || '').toLowerCase()));
+          if (match && match.avatar_url && match.avatar_url !== curr.avatar) {
+            const newCurr = {
+              ...curr,
+              name: match.name || curr.name,
+              email: match.email || curr.email,
+              avatar: match.avatar_url
+            };
+            try {
+              localStorage.setItem('rodin_current_user', JSON.stringify(newCurr));
+            } catch (e) {}
+            return newCurr;
+          }
+          return curr;
+        });
+      }
+    } catch (err) {
+      console.warn('Sincronização de perfis com Supabase indisponível no momento:', err);
+    }
+  };
+
+  useEffect(() => {
+    refreshUsersFromSupabase();
+  }, []);
+
+  const updateUserProfile = (updatedUser) => {
+    if (!updatedUser) return;
+    setCurrentUser(updatedUser);
+    setUsers(prev => {
+      const newUsers = prev.map(u => 
+        (u.id === updatedUser.id || (u.email && u.email.toLowerCase() === (updatedUser.email || '').toLowerCase()))
+          ? { ...u, ...updatedUser }
+          : u
+      );
+      try {
+        localStorage.setItem('rodin_all_users', JSON.stringify(newUsers));
+      } catch (e) {}
+      return newUsers;
+    });
+    try {
+      localStorage.setItem('rodin_current_user', JSON.stringify(updatedUser));
+    } catch (e) {}
+  };
 
   const [activeTab, setActiveTab] = useState('rematricula');
   const [classes, setClasses] = useState(ALL_CLASSES_2027 && ALL_CLASSES_2027.length > 0 ? ALL_CLASSES_2027 : INITIAL_CLASSES);
@@ -455,13 +554,14 @@ export function AppProvider({ children }) {
 
   const login = (user) => {
     if (!user) return;
-    setCurrentUser(user);
+    const freshUser = users.find(u => u.id === user.id || (u.email && u.email.toLowerCase() === (user.email || '').toLowerCase())) || user;
+    setCurrentUser(freshUser);
     setIsAuthenticated(true);
-    const targetTab = getDefaultTabForRole(user.role);
+    const targetTab = getDefaultTabForRole(freshUser.role);
     setActiveTab(targetTab);
     localStorage.setItem('rodin_is_authenticated', 'true');
-    localStorage.setItem('rodin_current_user', JSON.stringify(user));
-    showToast(`Bem-vindo(a), ${user.name}!`);
+    localStorage.setItem('rodin_current_user', JSON.stringify(freshUser));
+    showToast(`Bem-vindo(a), ${freshUser.name}!`);
   };
 
   const logout = () => {
@@ -1082,6 +1182,10 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       currentUser,
       setCurrentUser,
+      users,
+      setUsers,
+      updateUserProfile,
+      refreshUsersFromSupabase,
       PRESET_USERS,
       isAuthenticated,
       setIsAuthenticated,

@@ -11,12 +11,18 @@ import {
 } from 'lucide-react';
 
 export default function LoginScreen() {
-  const { login, PRESET_USERS: contextUsers } = useApp() || {};
-  const usersList = (contextUsers && Array.isArray(contextUsers) && contextUsers.length > 0)
-    ? contextUsers
+  const { login, users, refreshUsersFromSupabase } = useApp() || {};
+  const usersList = (users && Array.isArray(users) && users.length > 0)
+    ? users
     : (Array.isArray(PRESET_USERS) ? PRESET_USERS : []);
 
-  const [identifier, setIdentifier] = useState('matheus.admin@colegiorodin.com.br');
+  React.useEffect(() => {
+    if (refreshUsersFromSupabase) {
+      refreshUsersFromSupabase();
+    }
+  }, [refreshUsersFromSupabase]);
+
+  const [identifier, setIdentifier] = useState('kelly.vilani@colegiorodin.com.br');
   const [password, setPassword] = useState('rodin2027');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);

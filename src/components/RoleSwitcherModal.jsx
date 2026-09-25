@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function RoleSwitcherModal({ isOpen, onClose }) {
-  const { currentUser, setCurrentUser, showToast, logout } = useApp();
+  const { currentUser, setCurrentUser, updateUserProfile, refreshUsersFromSupabase, showToast, logout } = useApp();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -54,6 +54,9 @@ export default function RoleSwitcherModal({ isOpen, onClose }) {
 
       if (newAvatarUrl) {
         setAvatar(newAvatarUrl);
+        if (updateUserProfile) {
+          updateUserProfile({ ...currentUser, avatar: newAvatarUrl });
+        }
         showToast('Foto atualizada e salva no Supabase Storage!');
       } else {
         showToast('Não foi possível enviar a foto. Tente novamente.', 'error');
@@ -87,12 +90,19 @@ export default function RoleSwitcherModal({ isOpen, onClose }) {
       password: password
     };
 
-    // 1. Atualizar Estado React local e LocalStorage
-    setCurrentUser(updatedUser);
-    localStorage.setItem('rodin_current_user', JSON.stringify(updatedUser));
+    // 1. Atualizar Estado React local, lista global de usuários e LocalStorage
+    if (updateUserProfile) {
+      updateUserProfile(updatedUser);
+    } else {
+      setCurrentUser(updatedUser);
+      localStorage.setItem('rodin_current_user', JSON.stringify(updatedUser));
+    }
 
     // 2. Enviar atualização em tempo real para a tabela public.profiles do Supabase
     const isSynced = await updateProfileInSupabase(updatedUser);
+    if (refreshUsersFromSupabase) {
+      await refreshUsersFromSupabase();
+    }
     if (isSynced) {
       showToast('Perfil atualizado no site e sincronizado no Supabase!');
     } else {
