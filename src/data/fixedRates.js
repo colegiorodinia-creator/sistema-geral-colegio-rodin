@@ -261,29 +261,16 @@ export function getStandardMaterialForGrade(grade, config) {
   };
 }
 
+export { LE_PERINI_COC_LIST, LE_PERINI_COC_SET, checkIsLePerini } from './lePeriniStudents.js';
+import { checkIsLePerini } from './lePeriniStudents.js';
+
 /**
  * Identifica se o estudante pertence ao convênio Colégio Le Perini (DLP).
- * Na planilha oficial de 2027/2026, todos os registros com sigla 'DLP' ou 'Le Perini' são conveniados.
+ * Na planilha oficial de 2027/2026, todos os 287 registros DLP são Le Perini.
+ * Alunos Le Perini vêm com o check ON por padrão; os demais vêm sem nada (OFF).
  */
 export function isLePeriniStudent(student, enrollment) {
-  if (student?.isLePerini !== undefined && student?.isLePerini !== null) {
-    return Boolean(student.isLePerini);
-  }
-  if (enrollment?.isLePerini !== undefined && enrollment?.isLePerini !== null) {
-    return Boolean(enrollment.isLePerini);
-  }
-  const texts = [
-    student?.tipo_desconto_2027,
-    student?.observacao_desconto_2027,
-    student?.desconto_2026_detalhes,
-    enrollment?.tuitionDiscountType,
-    enrollment?.tuitionDiscountReason,
-    enrollment?.discountDescription,
-    enrollment?.notes,
-    enrollment?.observations
-  ].filter(Boolean).join(' ').toUpperCase();
-
-  return texts.includes('DLP') || texts.includes('LE PERINI') || texts.includes('LEPERINI');
+  return checkIsLePerini(student, enrollment);
 }
 
 /**

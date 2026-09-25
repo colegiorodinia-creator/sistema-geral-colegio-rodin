@@ -516,8 +516,8 @@ export function AppProvider({ children }) {
   const [activeTab, setActiveTab] = useState('rematricula');
   const [classes, setClasses] = useState(ALL_CLASSES_2027 && ALL_CLASSES_2027.length > 0 ? ALL_CLASSES_2027 : INITIAL_CLASSES);
 
-  // Cache Buster para garantir tagueamento Le Perini (DLP) e carregamento dos dados puros da planilha oficial (2027)
-  const DB_VERSION = 'rodin_2027_v11_le_perini_tagging';
+  // Cache Buster para garantir tagueamento Le Perini (DLP) exato da planilha oficial (2027)
+  const DB_VERSION = 'rodin_2027_v12_exact_le_perini_dlp';
   try {
     if (typeof window !== 'undefined' && localStorage.getItem('rodin_db_version') !== DB_VERSION) {
       localStorage.removeItem('rodin_students');
@@ -535,15 +535,24 @@ export function AppProvider({ children }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 50) {
-          return parsed.map(s => ({
-            ...s,
-            isLePerini: isLePeriniStudent(s, null)
-          }));
+          return parsed.map(s => {
+            const enr = (ALL_ENROLLMENTS_2027 || []).find(e => e.rmNumber === s.rmNumber || e.cocCode === s.cocCode);
+            return {
+              ...s,
+              isLePerini: isLePeriniStudent(s, enr)
+            };
+          });
         }
       }
     } catch (e) {}
     const base = (ALL_STUDENTS_2027 && ALL_STUDENTS_2027.length > 0) ? ALL_STUDENTS_2027 : INITIAL_STUDENTS;
-    return base.map(s => ({ ...s, isLePerini: isLePeriniStudent(s, null) }));
+    return base.map(s => {
+      const enr = (ALL_ENROLLMENTS_2027 || []).find(e => e.rmNumber === s.rmNumber || e.cocCode === s.cocCode);
+      return {
+        ...s,
+        isLePerini: isLePeriniStudent(s, enr)
+      };
+    });
   });
 
   const [enrollments, setEnrollments] = useState(() => {
@@ -552,20 +561,29 @@ export function AppProvider({ children }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 50) {
-          return parsed.map(e => ({
-            ...e,
-            isLePerini: isLePeriniStudent(null, e),
-            schoolContractStatus: e.schoolContractStatus || (e.status === 'active' || e.status === 'reenrolled' ? 'signed' : 'pending'),
-            materialContractStatus: e.materialContractStatus || (e.status === 'active' || e.status === 'reenrolled' ? 'signed' : 'pending'),
-            materialStartDueDate: (e.materialStartDueDate && !e.materialStartDueDate.includes('2026') && !e.materialStartDueDate.includes('2025')) ? e.materialStartDueDate : '2027-01-10',
-            materialEndDueDate: (e.materialEndDueDate && !e.materialEndDueDate.includes('2026') && !e.materialEndDueDate.includes('2025')) ? e.materialEndDueDate : '2027-12-10',
-            materialPaymentMethod: (e.materialPaymentMethod && e.materialPaymentMethod.toLowerCase().includes('cart')) ? 'Cartão de Crédito' : 'Boleto Bancário'
-          }));
+          return parsed.map(e => {
+            const std = (ALL_STUDENTS_2027 || []).find(s => s.rmNumber === e.rmNumber || s.cocCode === e.cocCode);
+            return {
+              ...e,
+              isLePerini: isLePeriniStudent(std, e),
+              schoolContractStatus: e.schoolContractStatus || (e.status === 'active' || e.status === 'reenrolled' ? 'signed' : 'pending'),
+              materialContractStatus: e.materialContractStatus || (e.status === 'active' || e.status === 'reenrolled' ? 'signed' : 'pending'),
+              materialStartDueDate: (e.materialStartDueDate && !e.materialStartDueDate.includes('2026') && !e.materialStartDueDate.includes('2025')) ? e.materialStartDueDate : '2027-01-10',
+              materialEndDueDate: (e.materialEndDueDate && !e.materialEndDueDate.includes('2026') && !e.materialEndDueDate.includes('2025')) ? e.materialEndDueDate : '2027-12-10',
+              materialPaymentMethod: (e.materialPaymentMethod && e.materialPaymentMethod.toLowerCase().includes('cart')) ? 'Cartão de Crédito' : 'Boleto Bancário'
+            };
+          });
         }
       }
     } catch (e) {}
     const base = (ALL_ENROLLMENTS_2027 && ALL_ENROLLMENTS_2027.length > 0) ? ALL_ENROLLMENTS_2027 : INITIAL_ENROLLMENTS;
-    return base.map(e => ({ ...e, isLePerini: isLePeriniStudent(null, e) }));
+    return base.map(e => {
+      const std = (ALL_STUDENTS_2027 || []).find(s => s.rmNumber === e.rmNumber || s.cocCode === e.cocCode);
+      return {
+        ...e,
+        isLePerini: isLePeriniStudent(std, e)
+      };
+    });
   });
 
   const [classroomLogs, setClassroomLogs] = useState(INITIAL_LOGS);
