@@ -7,7 +7,8 @@ const AppContext = createContext();
 
 export const PRESET_USERS = [
   { id: 'a0000000-0000-0000-0000-000000000008', name: 'Kelly Cristina Vilani', email: 'kelly.vilani@colegiorodin.com.br', role: 'enrollment', roleLabel: 'Setor de Matrículas', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80' },
-  { id: 'a0000000-0000-0000-0000-000000000009', name: 'Elisangela Cordeiro Santos', email: 'elisangela.santos@colegiorodin.com.br', role: 'enrollment', roleLabel: 'Setor de Matrículas', avatar: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=150&auto=format&fit=crop&q=80' }
+  { id: 'a0000000-0000-0000-0000-000000000009', name: 'Elisangela Cordeiro Santos', email: 'elisangela.santos@colegiorodin.com.br', role: 'enrollment', roleLabel: 'Setor de Matrículas', avatar: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=150&auto=format&fit=crop&q=80' },
+  { id: 'a0000000-0000-0000-0000-000000000010', name: 'Setor de Matrículas', email: 'matriculas@colegiorodin.com.br', password: 'Rod!n2027Mat', role: 'enrollment', roleLabel: 'Setor de Matrículas', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' }
 ];
 
 export const getDefaultTabForRole = (role) => {
@@ -442,6 +443,23 @@ export function AppProvider({ children }) {
             }
             return u;
           });
+
+          // Adicionar novos usuários cadastrados no Supabase
+          dbProfiles.forEach(p => {
+            const exists = updated.some(u => u.id === p.id || (u.email && u.email.toLowerCase() === (p.email || '').toLowerCase()));
+            if (!exists) {
+              updated.push({
+                id: p.id,
+                name: p.name || 'Setor de Matrículas',
+                email: p.email,
+                password: p.email === 'matriculas@colegiorodin.com.br' ? 'Rod!n2027Mat' : 'rodin2027',
+                role: p.role || 'enrollment',
+                roleLabel: p.role_label || 'Setor de Matrículas',
+                avatar: p.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+              });
+            }
+          });
+
           try {
             localStorage.setItem('rodin_all_users', JSON.stringify(updated));
           } catch (e) {}
