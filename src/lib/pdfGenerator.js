@@ -399,17 +399,17 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
 
   // Coluna Esquerda: Anuidade, Parcelas e Vencimentos (Aproveitamento inteligente do espaço na mesma linha/estilo)
   // Linha 1: Valor de Contrato e Número de Parcelas
-  drawTickField(10.1, 251.0, 60.0, 'Valor Total da Anuidade do Curso:', `R$ ${grossVal}`, { boldValue: true, fieldName: 'anuidade_total_curso' });
-  drawTickField(73.0, 251.0, 53.2, 'Quant. de Parcelas:', instCountLabel, { boldValue: true, fieldName: 'anuidade_quant_parcelas' });
+  drawTickField(10.1, 251.0, 60.0, 'Valor Total da Anuidade do Curso:', `R$ ${grossVal}`, { fieldName: 'anuidade_total_curso' });
+  drawTickField(73.0, 251.0, 53.2, 'Quant. de Parcelas:', instCountLabel, { fieldName: 'anuidade_quant_parcelas' });
 
   // Linha 2: Tudo da 1ª Parcela (Valor, Parcelamento em até 3x, Vencimento das Cotas)
-  drawTickField(10.1, 262.0, 32.0, 'Valor da 1ª Parcela:', is100Discount ? '—' : `R$ ${firstVal}`, { boldValue: true, fieldName: 'valor_primeira_parcela' });
-  drawTickField(44.5, 262.0, 48.0, 'Parcelamento 1ª Parcela (até 3x):', firstSplitLabel, { boldValue: true, fieldName: 'parcelamento_primeira_parcela' });
-  drawTickField(94.5, 262.0, 31.7, 'Venc. Cotas 1ª Parc.:', firstDueLabel, { boldValue: true, fieldName: 'vencimento_cotas_primeira_parcela' });
+  drawTickField(10.1, 262.0, 32.0, 'Valor da 1ª Parcela:', is100Discount ? '—' : `R$ ${firstVal}`, { fieldName: 'valor_primeira_parcela' });
+  drawTickField(44.5, 262.0, 48.0, 'Parcelamento 1ª Parcela (até 3x):', firstSplitLabel, { fieldName: 'parcelamento_primeira_parcela' });
+  drawTickField(94.5, 262.0, 31.7, 'Venc. Cotas 1ª Parc.:', firstDueLabel, { fieldName: 'vencimento_cotas_primeira_parcela' });
 
   // Linha 3: Demais Parcelas e Vencimento das Demais Parcelas
-  drawTickField(10.1, 273.0, 46.0, 'Valor das Demais Parcelas:*', (isAvista || is100Discount) ? '—' : `R$ ${regVal}`, { boldValue: true, fieldName: 'valor_demais_parcelas' });
-  drawTickField(58.5, 273.0, 67.7, 'Vencimento das Demais Parcelas:', regDueLabel, { boldValue: true, fieldName: 'vencimento_demais_parcelas' });
+  drawTickField(10.1, 273.0, 46.0, 'Valor das Demais Parcelas:*', (isAvista || is100Discount) ? '—' : `R$ ${regVal}`, { fieldName: 'valor_demais_parcelas' });
+  drawTickField(58.5, 273.0, 67.7, 'Vencimento das Demais Parcelas:', regDueLabel, { fieldName: 'vencimento_demais_parcelas' });
 
   // Vencimento e Notas
   doc.setFont('helvetica', 'normal');
