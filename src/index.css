@@ -1,0 +1,374 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Core Brand Tokens (Gestão de Sala Rodin) */
+  --rodin-orange:        #F45206;
+  --rodin-orange-light:  #FFF0E6;
+  --rodin-orange-hover:  #ED6A2A;
+  --rodin-graphite:      #1E293B;
+  --rodin-cool-gray:     #64748B;
+  --rodin-beige:         #F1F5F9;
+  --rodin-paper:         #F8FAFC;
+  --rodin-white:         #FFFFFF;
+  --rodin-line:          #E2E8F0;
+  
+  /* Status */
+  --danger:              #FF4757;
+  --warning:             #FFA502;
+  --success:             #20C997;
+  --info:                #2D68FE;
+
+  --font-main:           'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: var(--font-main);
+}
+
+html, body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background-color: var(--rodin-paper);
+  color: var(--rodin-graphite);
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Utility to hide scrollbars while allowing scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Base Cards */
+.rodin-panel-card {
+  background: var(--rodin-white);
+  border: 1px solid var(--rodin-line);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+}
+
+@media (max-width: 640px) {
+  .rodin-panel-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+}
+
+/* KPI Cards */
+.stat-kpi-card {
+  background: var(--rodin-white);
+  border: 1px solid var(--rodin-line);
+  border-radius: 20px;
+  padding: 20px 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+@media (max-width: 640px) {
+  .stat-kpi-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+}
+
+.stat-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+}
+
+/* Form Styles - Alta Qualidade Visual Gestão de Sala */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.form-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--rodin-cool-gray);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-control, .form-select {
+  width: 100%;
+  height: 44px;
+  padding: 8px 14px;
+  border: 1.5px solid var(--rodin-line);
+  border-radius: 12px;
+  font-family: var(--font-main);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--rodin-graphite);
+  background-color: #F8FAFC;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.form-control:focus, .form-select:focus {
+  outline: none;
+  border-color: var(--rodin-orange);
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(244, 82, 6, 0.12);
+}
+
+textarea.form-control {
+  height: auto;
+  min-height: 80px;
+  padding: 10px 14px;
+}
+
+/* Badges */
+.badge-stat-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.badge-stat-item.desvios { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+.badge-stat-item.saidas { background: #FFF7ED; color: #EA580C; border: 1px solid #FFEDD5; }
+.badge-stat-item.sonolencia { background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; }
+.badge-stat-item.success { background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
+
+/* Buttons */
+.btn-primary-rodin {
+  background-color: var(--rodin-orange);
+  color: #FFF;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(244, 82, 6, 0.25);
+}
+
+.btn-primary-rodin:hover {
+  background-color: var(--rodin-orange-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(244, 82, 6, 0.35);
+}
+
+.btn-primary-rodin:disabled {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  transform: none !important;
+  box-shadow: none !important;
+  filter: grayscale(0.4) !important;
+}
+
+.btn-secondary-rodin {
+  background-color: #F8FAFC;
+  color: var(--rodin-graphite);
+  border: 1.5px solid var(--rodin-line);
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary-rodin:hover {
+  background-color: #F1F5F9;
+  border-color: #CBD5E1;
+}
+
+/* Modais */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal-container-popup {
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
+  animation: modalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.96) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes slideRight {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-slideRight {
+  animation: slideRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.2s ease-in-out forwards;
+}
+
+/* Student Photocards */
+.student-photocard {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--rodin-graphite);
+}
+
+@media (max-width: 640px) {
+  .student-photocard {
+    height: 170px;
+  }
+}
+
+.student-photocard:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
+}
+
+.photocard-gradient-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(15,23,42,0.92) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 12px;
+}
+
+.student-name-text {
+  color: #FFFFFF;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 2px;
+}
+
+.photocard-badges-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+/* Toast Snackbar */
+#rodin-toast-snackbar {
+  visibility: hidden;
+  min-width: 280px;
+  max-width: 90vw;
+  background-color: #1E293B;
+  color: #FFFFFF;
+  text-align: left;
+  border-radius: 14px;
+  padding: 12px 18px;
+  position: fixed;
+  z-index: 10000;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+  border: 1px solid #334155;
+}
+
+#rodin-toast-snackbar.show {
+  visibility: visible;
+  animation: fadeinToast 0.3s, fadeoutToast 0.3s 2.7s;
+}
+
+@keyframes fadeinToast {
+  from { bottom: 0; opacity: 0; }
+  to { bottom: 30px; opacity: 1; }
+}
+
+@keyframes fadeoutToast {
+  from { bottom: 30px; opacity: 1; }
+  to { bottom: 0; opacity: 0; }
+}
+
+/* Animação Clean para Resultados de Busca */
+@keyframes cleanFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-clean-fade {
+  animation: cleanFadeIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

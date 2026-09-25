@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Local Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build output
+dist/
+build/
+
+# IDE / System files
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.idea/
+.vscode/
+
+# Large binaries, raw photos and archives
+PDFs_Rematricula_2027/
+public/Turmas/
+Turmas/
+*.zip
+*.xlsx
+
+# Scratch & Temporary Logs
+scratch/
+*.log
+__pycache__/
