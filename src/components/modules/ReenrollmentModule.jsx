@@ -693,10 +693,12 @@ export default function ReenrollmentModule() {
 
   // Ao selecionar um estudante para rematrícula, preencher todos os dados existentes
   const handleSelectStudent = (student) => {
-    // Buscar se já possui registro de matrícula prévio para mesclar metadados financeiros
-    const existingEnrollment = enrollments.find(
-      e => e.studentId === student.id || e.rmNumber === student.rmNumber || e.cocCode === student.cocCode
-    ) || {};
+    try {
+      console.log('Selecionando estudante para rematrícula:', student?.name || student?.studentName);
+      // Buscar se já possui registro de matrícula prévio para mesclar metadados financeiros
+      const existingEnrollment = enrollments.find(
+        e => e.studentId === student.id || e.rmNumber === student.rmNumber || e.cocCode === student.cocCode
+      ) || {};
 
     const primaryGuardian = (student.guardians && student.guardians[0]) || {};
 
@@ -764,7 +766,7 @@ export default function ReenrollmentModule() {
 
     const { firstInstallment: calcedFirst, regularInstallment: calcedReg } = calculateRodinInstallments(
       grossNum,
-      effectiveNominalNum,
+      nominalNum,
       countNum,
       detectedLePerini
     );
@@ -922,7 +924,13 @@ export default function ReenrollmentModule() {
     setIsSaved(false);
     isInitialStudentSelectionRef.current = true;
     setAutoSaveStatus('saved');
-  };
+  } catch (err) {
+    console.error('Erro ao selecionar estudante para rematrícula:', err);
+    setSelectedStudent(student);
+    setIsSaved(false);
+    setCurrentStep(1);
+  }
+};
 
   // Recálculo automático das parcelas e aplicação de 5% de desconto para À Vista
   const handleCalculateInstallments = (totalStr, planChoice, customFirstStr, isLePeriniOverride) => {
@@ -3585,7 +3593,9 @@ export default function ReenrollmentModule() {
                     return (
                       <tr
                         key={student.id}
-                        onDoubleClick={() => {
+                        onClick={() => handleSelectStudent(student)}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
                           if (selectedStudentIdFilter === student.id) {
                             setSelectedStudentIdFilter(null);
                           } else {
