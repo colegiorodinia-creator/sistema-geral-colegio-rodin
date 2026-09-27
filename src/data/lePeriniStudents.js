@@ -304,11 +304,11 @@ export const LE_PERINI_COC_SET = new Set(LE_PERINI_COC_LIST);
  * @returns {boolean}
  */
 export function checkIsLePerini(student, enrollment) {
-  // Se explicitamente marcado como booleano no objeto ativo (ex: formulário ou edição do usuário)
-  if (student && typeof student.isLePerini === 'boolean' && student.isLePeriniManual) {
+  // Se explicitamente marcado como booleano (true ou false) no estudante ou matrícula
+  if (student && typeof student.isLePerini === 'boolean') {
     return student.isLePerini;
   }
-  if (enrollment && typeof enrollment.isLePerini === 'boolean' && enrollment.isLePeriniManual) {
+  if (enrollment && typeof enrollment.isLePerini === 'boolean') {
     return enrollment.isLePerini;
   }
 

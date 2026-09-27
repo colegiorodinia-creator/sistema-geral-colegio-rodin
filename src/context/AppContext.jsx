@@ -590,7 +590,7 @@ export function AppProvider({ children }) {
             const enr = (ALL_ENROLLMENTS_2027 || []).find(e => e.rmNumber === s.rmNumber || e.cocCode === s.cocCode);
             return {
               ...s,
-              isLePerini: isLePeriniStudent(s, enr)
+              isLePerini: typeof s.isLePerini === 'boolean' ? s.isLePerini : isLePeriniStudent(s, enr)
             };
           });
         }
@@ -601,7 +601,7 @@ export function AppProvider({ children }) {
       const enr = (ALL_ENROLLMENTS_2027 || []).find(e => e.rmNumber === s.rmNumber || e.cocCode === s.cocCode);
       return {
         ...s,
-        isLePerini: isLePeriniStudent(s, enr)
+        isLePerini: typeof s.isLePerini === 'boolean' ? s.isLePerini : isLePeriniStudent(s, enr)
       };
     });
   });
@@ -616,7 +616,7 @@ export function AppProvider({ children }) {
             const std = (ALL_STUDENTS_2027 || []).find(s => s.rmNumber === e.rmNumber || s.cocCode === e.cocCode);
             return {
               ...e,
-              isLePerini: isLePeriniStudent(std, e),
+              isLePerini: typeof e.isLePerini === 'boolean' ? e.isLePerini : (typeof std?.isLePerini === 'boolean' ? std.isLePerini : isLePeriniStudent(std, e)),
               schoolContractStatus: e.schoolContractStatus || (e.status === 'active' || e.status === 'reenrolled' ? 'signed' : 'pending'),
               materialContractStatus: e.materialContractStatus || (e.status === 'active' || e.status === 'reenrolled' ? 'signed' : 'pending'),
               materialStartDueDate: (e.materialStartDueDate && !e.materialStartDueDate.includes('2026') && !e.materialStartDueDate.includes('2025')) ? e.materialStartDueDate : '2027-01-10',
@@ -632,7 +632,7 @@ export function AppProvider({ children }) {
       const std = (ALL_STUDENTS_2027 || []).find(s => s.rmNumber === e.rmNumber || s.cocCode === e.cocCode);
       return {
         ...e,
-        isLePerini: isLePeriniStudent(std, e)
+        isLePerini: typeof e.isLePerini === 'boolean' ? e.isLePerini : (typeof std?.isLePerini === 'boolean' ? std.isLePerini : isLePeriniStudent(std, e))
       };
     });
   });

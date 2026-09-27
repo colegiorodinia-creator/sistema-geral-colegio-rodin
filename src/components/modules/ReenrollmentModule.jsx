@@ -758,8 +758,9 @@ export default function ReenrollmentModule() {
     const countInst = initialPlanChoice === '1_avista_5off' ? '1' : initialPlanChoice;
     const countNum = parseInt(countInst) || 13;
     const grossNum = parseBRLToNumber(grossVal);
-    const effectiveNominalNum = nominalNum || (gradeRates.tuitionNominalNum || grossNum);
-    const detectedLePerini = isLePeriniStudent(student, existingEnrollment);
+    const detectedLePerini = typeof student.isLePerini === 'boolean'
+      ? student.isLePerini
+      : (typeof existingEnrollment.isLePerini === 'boolean' ? existingEnrollment.isLePerini : isLePeriniStudent(student, existingEnrollment));
 
     const { firstInstallment: calcedFirst, regularInstallment: calcedReg } = calculateRodinInstallments(
       grossNum,
@@ -1943,10 +1944,23 @@ export default function ReenrollmentModule() {
                       onChange={(e) => {
                         const isChecked = e.target.checked;
                         handleCalculateInstallments(formData.tuitionGrossTotal, formData.paymentPlanChoice, undefined, isChecked);
-                        setFormData(prev => ({
-                          ...prev,
+                        const nextFormData = {
+                          ...formData,
                           isLePerini: isChecked
-                        }));
+                        };
+                        setFormData(nextFormData);
+
+                        // Salvar imediatamente no banco de dados e no estado da aplicação
+                        const updatedStudent = {
+                          ...buildUpdatedStudentObject(),
+                          isLePerini: isChecked
+                        };
+                        const enrollmentData = {
+                          ...buildEnrollmentDataObject(formData.schoolContractStatus, formData.materialContractStatus),
+                          isLePerini: isChecked
+                        };
+                        saveReenrollment(enrollmentData, updatedStudent);
+                        lastSavedSnapshotRef.current = JSON.stringify(nextFormData);
                       }}
                       className="sr-only peer"
                     />
