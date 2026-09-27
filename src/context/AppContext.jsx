@@ -523,7 +523,8 @@ export function AppProvider({ children }) {
                 medicalAllergies: match.medical_allergies || localStudent.medicalAllergies,
                 emergencyContact: match.emergency_contact || localStudent.emergencyContact,
                 photoUrl: match.photo_url || localStudent.photoUrl,
-                attendanceRate: match.attendance_rate || localStudent.attendanceRate
+                attendanceRate: match.attendance_rate || localStudent.attendanceRate,
+                isLePerini: match.is_le_perini !== undefined && match.is_le_perini !== null ? match.is_le_perini : localStudent.isLePerini
               };
             }
             return localStudent;

@@ -301,7 +301,8 @@ export async function syncEnrollmentToSupabase(enrollmentData, updatedStudent = 
       medical_allergies: updatedStudent?.medicalAllergies || enrollmentData?.medicalAllergies || 'Nenhuma restrição cadastrada.',
       emergency_contact: updatedStudent?.emergencyContact || enrollmentData?.emergencyContact || enrollmentData?.guardianPhone || null,
       photo_url: updatedStudent?.photoUrl || enrollmentData?.photoUrl || null,
-      attendance_rate: updatedStudent?.attendanceRate || '98%'
+      attendance_rate: updatedStudent?.attendanceRate || '98%',
+      is_le_perini: Boolean(updatedStudent?.isLePerini !== undefined ? updatedStudent.isLePerini : enrollmentData?.isLePerini)
     };
 
     let studentId = null;
