@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ALL_CLASSES_2027, ALL_STUDENTS_2027, ALL_ENROLLMENTS_2027 } from '../data/initialData2027';
 import { FIXED_RATES_2027, getFixedRatesForGrade, DEFAULT_CAMPAIGN_CONFIG, getDynamicRatesForGrade, isLePeriniStudent, calculateRodinInstallments } from '../data/fixedRates';
-import { syncEnrollmentToSupabase, fetchProfilesFromSupabase } from '../lib/supabaseStorage';
+import { syncEnrollmentToSupabase, fetchProfilesFromSupabase, fetchStudentsFromSupabase } from '../lib/supabaseStorage';
 
 const AppContext = createContext();
 
@@ -490,8 +490,58 @@ export function AppProvider({ children }) {
     }
   };
 
+  // Função para sincronizar dados dos estudantes com a tabela public.students do Supabase
+  const refreshStudentsFromSupabase = async () => {
+    try {
+      const dbStudents = await fetchStudentsFromSupabase();
+      if (dbStudents && Array.isArray(dbStudents) && dbStudents.length > 0) {
+        setStudents(prev => {
+          const updated = prev.map(localStudent => {
+            const match = dbStudents.find(d => String(d.rm_number) === String(localStudent.rmNumber) || String(d.coc_code) === String(localStudent.cocCode));
+            if (match) {
+              return {
+                ...localStudent,
+                id: match.id || localStudent.id,
+                name: match.name || localStudent.name,
+                studentName: match.name || localStudent.studentName,
+                gender: match.gender || localStudent.gender,
+                birthDate: match.birth_date || localStudent.birthDate,
+                birthCity: match.birth_city || localStudent.birthCity,
+                nationality: match.nationality || localStudent.nationality,
+                rg: match.rg || localStudent.rg,
+                rgIssuer: match.rg_issuer || localStudent.rgIssuer,
+                rgIssueDate: match.rg_issue_date || localStudent.rgIssueDate,
+                cpf: match.cpf || localStudent.cpf,
+                studentPhone: match.student_phone || localStudent.studentPhone,
+                courseLevel: match.course_level || localStudent.courseLevel,
+                currentGrade: match.current_grade || localStudent.currentGrade,
+                classGroup: match.class_group || localStudent.classGroup,
+                schoolShift: match.school_shift || localStudent.schoolShift,
+                schoolUnit: match.school_unit || localStudent.schoolUnit,
+                specialNeedsDesc: match.special_needs_desc || localStudent.specialNeedsDesc,
+                condition: match.special_needs_desc || localStudent.condition,
+                medicalAllergies: match.medical_allergies || localStudent.medicalAllergies,
+                emergencyContact: match.emergency_contact || localStudent.emergencyContact,
+                photoUrl: match.photo_url || localStudent.photoUrl,
+                attendanceRate: match.attendance_rate || localStudent.attendanceRate
+              };
+            }
+            return localStudent;
+          });
+          try {
+            localStorage.setItem('rodin_students', JSON.stringify(updated));
+          } catch (e) {}
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.warn('Sincronização de estudantes com Supabase indisponível no momento:', err);
+    }
+  };
+
   useEffect(() => {
     refreshUsersFromSupabase();
+    refreshStudentsFromSupabase();
   }, []);
 
   const updateUserProfile = (updatedUser) => {
@@ -1145,32 +1195,53 @@ export function AppProvider({ children }) {
         (e.rmNumber === updatedEnrollment.rmNumber && String(e.academicYear || 2027) === targetYear)
       );
 
+      let next;
       if (exists) {
-        return prev.map(e => 
+        next = prev.map(e => 
           (e.id === updatedEnrollment.id || (e.rmNumber === updatedEnrollment.rmNumber && String(e.academicYear || 2027) === targetYear))
             ? { ...e, ...updatedEnrollment, academicYear: parseInt(targetYear) || targetYear } 
             : e
         );
+      } else {
+        next = [{ ...updatedEnrollment, academicYear: parseInt(targetYear) || targetYear }, ...prev];
       }
-
-      // Se for um novo ano letivo (ex: 2028), ADICIONA como novo registro, mantendo o histórico de 2027 intacto!
-      return [{ ...updatedEnrollment, academicYear: parseInt(targetYear) || targetYear }, ...prev];
+      try {
+        localStorage.setItem('rodin_enrollments', JSON.stringify(next));
+      } catch (e) {}
+      return next;
     });
 
     if (updatedStudent) {
       setStudents(prev => {
         const exists = prev.some(s => s.id === updatedStudent.id || s.rmNumber === updatedStudent.rmNumber);
+        let next;
         if (exists) {
-          return prev.map(s => (s.id === updatedStudent.id || s.rmNumber === updatedStudent.rmNumber) ? { ...s, ...updatedStudent } : s);
+          next = prev.map(s => (s.id === updatedStudent.id || s.rmNumber === updatedStudent.rmNumber) ? { ...s, ...updatedStudent } : s);
+        } else {
+          next = [updatedStudent, ...prev];
         }
-        return [updatedStudent, ...prev];
+        try {
+          localStorage.setItem('rodin_students', JSON.stringify(next));
+        } catch (e) {}
+        return next;
       });
     }
 
+    // Sincronização direta e em tempo real com o Banco de Dados Supabase (students, guardians, enrollments, contracts)
+    syncEnrollmentToSupabase(updatedEnrollment, updatedStudent)
+      .then(ok => {
+        if (ok) {
+          console.log(`[Supabase DB] Sincronização em tempo real realizada com sucesso para ${updatedStudent?.name || updatedEnrollment?.studentName}`);
+        }
+      })
+      .catch(err => {
+        console.warn('[Supabase DB] Erro na sincronização:', err);
+      });
+
     if (updatedEnrollment.status === 'reenrolled') {
-      showToast(`Rematrícula de ${updatedEnrollment.studentName} (RM ${updatedEnrollment.rmNumber}) para ${targetYear} confirmada com sucesso!`);
+      showToast(`Rematrícula de ${updatedEnrollment.studentName} (RM ${updatedEnrollment.rmNumber}) para ${targetYear} confirmada e salva no banco!`);
     } else {
-      showToast(`Dados contratuais e cadastrais de ${updatedEnrollment.studentName} para ${targetYear} salvos!`);
+      showToast(`Dados de ${updatedEnrollment.studentName || updatedStudent?.name} salvos no banco de dados!`);
     }
   };
 

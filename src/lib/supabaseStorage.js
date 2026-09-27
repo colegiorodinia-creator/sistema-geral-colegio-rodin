@@ -210,12 +210,62 @@ export async function updateProfileInSupabase(profileData) {
 }
 
 /**
- * Sincroniza a rematrícula (Alunos e Responsáveis) com o Supabase via REST API.
+ * Helper para validar e formatar datas para o formato DATE (YYYY-MM-DD) do PostgreSQL/Supabase.
  */
-export async function syncEnrollmentToSupabase(enrollmentData) {
-  if (!enrollmentData || !enrollmentData.rmNumber) return false;
+function toValidDbDate(dateStr) {
+  if (!dateStr || typeof dateStr !== 'string') return null;
+  const trimmed = dateStr.trim();
+  if (!trimmed) return null;
+  // Se estiver no formato brasileiro DD/MM/YYYY
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+    const [d, m, y] = trimmed.split('/');
+    return `${y}-${m}-${d}`;
+  }
+  // Se estiver no formato padrão ISO YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+  // Se for string ISO com timestamp (ex: 2014-09-09T00:00:00.000Z)
+  if (trimmed.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    return trimmed.substring(0, 10);
+  }
+  return null;
+}
 
-  const rm = String(enrollmentData.rmNumber);
+/**
+ * Busca todos os estudantes cadastrados na tabela public.students do Supabase.
+ */
+export async function fetchStudentsFromSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/students?select=*&limit=1000`, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data;
+    }
+  } catch (err) {
+    console.warn('Erro ao buscar estudantes do Supabase:', err);
+  }
+  return null;
+}
+
+/**
+ * Sincroniza a rematrícula completa (Alunos, Responsáveis, Matrículas e Contratos) com o Supabase via REST API.
+ */
+export async function syncEnrollmentToSupabase(enrollmentData, updatedStudent = null) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return false;
+
+  const rm = String(updatedStudent?.rmNumber || enrollmentData?.rmNumber || updatedStudent?.cocCode || enrollmentData?.cocCode || '');
+  if (!rm) return false;
+
   const headers = {
     'apikey': SUPABASE_ANON_KEY,
     'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
@@ -225,106 +275,154 @@ export async function syncEnrollmentToSupabase(enrollmentData) {
 
   try {
     // 1. Sincronizar Aluno (public.students)
+    const studentName = updatedStudent?.name || updatedStudent?.studentName || enrollmentData?.studentName || enrollmentData?.name || `Estudante RM ${rm}`;
+    const enrollmentCode = enrollmentData?.enrollmentCode || updatedStudent?.enrollmentCode || `ROD-${enrollmentData?.academicYear || 2027}-${rm}`;
+
     const studentPayload = {
+      name: studentName,
       rm_number: rm,
       coc_code: rm,
-      name: enrollmentData.studentName || enrollmentData.name || `Estudante RM ${rm}`,
-      enrollment_code: `RM ${rm}`,
-      gender: enrollmentData.studentGender || 'Masc.',
-      birth_date: enrollmentData.studentBirthDate || null,
-      birth_city: enrollmentData.studentBirthCity || 'Indaiatuba - SP',
-      nationality: enrollmentData.studentNationality || 'Brasileiro(a)',
-      rg: enrollmentData.studentRg || null,
-      rg_issuer: enrollmentData.studentRgIssuer || 'SSP/SP',
-      rg_issue_date: enrollmentData.studentRgIssueDate || null,
-      cpf: enrollmentData.studentCpf || null,
-      student_phone: enrollmentData.studentPhone || null,
-      course_level: enrollmentData.courseLevel || 'Ensino Fundamental',
-      current_grade: enrollmentData.currentGrade || '6º Ano EF',
-      school_shift: enrollmentData.schoolShift || 'Manhã'
+      enrollment_code: enrollmentCode,
+      gender: updatedStudent?.gender || updatedStudent?.studentGender || enrollmentData?.studentGender || 'Masc.',
+      birth_date: toValidDbDate(updatedStudent?.birthDate || updatedStudent?.studentBirthDate || enrollmentData?.studentBirthDate),
+      birth_city: updatedStudent?.birthCity || updatedStudent?.studentBirthCity || enrollmentData?.studentBirthCity || 'Indaiatuba',
+      nationality: updatedStudent?.nationality || updatedStudent?.studentNationality || enrollmentData?.studentNationality || 'Brasileira',
+      rg: updatedStudent?.rg || updatedStudent?.studentRg || enrollmentData?.studentRg || null,
+      rg_issuer: updatedStudent?.rgIssuer || updatedStudent?.studentRgIssuer || enrollmentData?.studentRgIssuer || 'SSP/SP',
+      rg_issue_date: toValidDbDate(updatedStudent?.rgIssueDate || updatedStudent?.studentRgIssueDate || enrollmentData?.studentRgIssueDate),
+      cpf: updatedStudent?.cpf || updatedStudent?.studentCpf || enrollmentData?.studentCpf || null,
+      student_phone: updatedStudent?.phone || updatedStudent?.studentPhone || enrollmentData?.studentPhone || null,
+      course_level: updatedStudent?.courseLevel || enrollmentData?.courseLevel || 'Ensino Fundamental',
+      current_grade: updatedStudent?.currentGrade || enrollmentData?.currentGrade || '6º Ano EF',
+      class_group: updatedStudent?.classGroup || enrollmentData?.classGroup || 'A',
+      school_shift: updatedStudent?.schoolShift || enrollmentData?.schoolShift || 'Manhã',
+      school_unit: updatedStudent?.schoolUnit || enrollmentData?.schoolUnit || 'Colégio Rodin - Indaiatuba',
+      special_needs_desc: updatedStudent?.condition || updatedStudent?.specialNeedsDesc || 'Normal',
+      medical_allergies: updatedStudent?.medicalAllergies || enrollmentData?.medicalAllergies || 'Nenhuma restrição cadastrada.',
+      emergency_contact: updatedStudent?.emergencyContact || enrollmentData?.emergencyContact || enrollmentData?.guardianPhone || null,
+      photo_url: updatedStudent?.photoUrl || enrollmentData?.photoUrl || null,
+      attendance_rate: updatedStudent?.attendanceRate || '98%'
     };
 
-    let studentRes = await fetch(`${SUPABASE_URL}/rest/v1/students?rm_number=eq.${encodeURIComponent(rm)}`, {
+    let studentId = null;
+
+    // Buscar aluno existente no Supabase pelo RM
+    const studentRes = await fetch(`${SUPABASE_URL}/rest/v1/students?rm_number=eq.${encodeURIComponent(rm)}`, {
       method: 'GET',
       headers
     });
-    let existingStudents = await studentRes.json();
-    let studentId = null;
 
-    if (Array.isArray(existingStudents) && existingStudents.length > 0) {
-      studentId = existingStudents[0].id;
+    if (studentRes.ok) {
+      const existingStudents = await studentRes.json();
+      if (Array.isArray(existingStudents) && existingStudents.length > 0) {
+        studentId = existingStudents[0].id;
+      }
+    }
+
+    // Fallback: verificar se updatedStudent.id é um UUID válido
+    if (!studentId && updatedStudent?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(updatedStudent.id)) {
+      studentId = updatedStudent.id;
+    }
+
+    if (studentId) {
       await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${studentId}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify(studentPayload)
       });
     } else {
-      let postRes = await fetch(`${SUPABASE_URL}/rest/v1/students`, {
+      const postRes = await fetch(`${SUPABASE_URL}/rest/v1/students`, {
         method: 'POST',
         headers,
         body: JSON.stringify(studentPayload)
       });
-      let posted = await postRes.json();
-      if (Array.isArray(posted) && posted.length > 0) {
-        studentId = posted[0].id;
+      if (postRes.ok) {
+        const posted = await postRes.json();
+        if (Array.isArray(posted) && posted.length > 0) {
+          studentId = posted[0].id;
+        }
       }
     }
 
     // 2. Sincronizar Responsável Legal/Financeiro (public.guardians)
-    if (enrollmentData.guardianCpf || enrollmentData.guardianName) {
+    const guardianObj = (updatedStudent?.guardians && updatedStudent.guardians[0]) || {};
+    const guardianName = enrollmentData?.guardianName || guardianObj.name || guardianObj.guardianName;
+    const guardianCpf = enrollmentData?.guardianCpf || guardianObj.cpf || guardianObj.guardianCpf;
+
+    let guardianId = null;
+
+    if (guardianName || guardianCpf) {
       const guardianPayload = {
-        name: enrollmentData.guardianName || 'Responsável Legal',
-        kinship_relation: enrollmentData.guardianRelation || 'Pai',
-        cpf: enrollmentData.guardianCpf || null,
-        rg: enrollmentData.guardianRg || null,
-        rg_issuer: enrollmentData.guardianRgIssuer || 'SSP/SP',
-        birth_date: enrollmentData.guardianBirthDate || null,
-        occupation: enrollmentData.guardianOccupation || null,
-        marital_status: enrollmentData.guardianMaritalStatus || null,
-        nationality: enrollmentData.guardianNationality || 'Brasileiro(a)',
-        email: enrollmentData.guardianEmail || null,
-        phone_mobile: enrollmentData.guardianPhone || null,
-        phone_landline: enrollmentData.guardianLandline || null,
-        address_cep: enrollmentData.guardianAddressCep || null,
-        address_street: enrollmentData.guardianAddressStreet || null,
-        address_number: enrollmentData.guardianAddressNumber || null,
-        address_complement: enrollmentData.guardianAddressComplement || null,
-        address_neighborhood: enrollmentData.guardianAddressNeighborhood || null,
-        address_city: enrollmentData.guardianAddressCity || 'Indaiatuba',
-        address_state: enrollmentData.guardianAddressState || 'SP'
+        name: guardianName || 'Responsável Legal',
+        kinship_relation: enrollmentData?.guardianRelation || guardianObj.kinshipRelation || guardianObj.guardianRelation || 'Pai',
+        cpf: guardianCpf || null,
+        rg: enrollmentData?.guardianRg || guardianObj.rg || guardianObj.guardianRg || null,
+        rg_issuer: enrollmentData?.guardianRgIssuer || guardianObj.rgIssuer || guardianObj.guardianRgIssuer || 'SSP/SP',
+        birth_date: toValidDbDate(enrollmentData?.guardianBirthDate || guardianObj.birthDate || guardianObj.guardianBirthDate),
+        occupation: enrollmentData?.guardianOccupation || guardianObj.occupation || guardianObj.guardianOccupation || null,
+        marital_status: enrollmentData?.guardianMaritalStatus || guardianObj.maritalStatus || guardianObj.guardianMaritalStatus || 'Casado(a)',
+        nationality: enrollmentData?.guardianNationality || guardianObj.nationality || guardianObj.guardianNationality || 'Brasileira',
+        email: enrollmentData?.guardianEmail || guardianObj.email || guardianObj.guardianEmail || null,
+        phone_mobile: enrollmentData?.guardianPhone || guardianObj.phoneMobile || guardianObj.guardianPhone || null,
+        phone_landline: enrollmentData?.guardianLandline || guardianObj.phoneLandline || guardianObj.guardianLandline || null,
+        address_cep: enrollmentData?.guardianAddressCep || guardianObj.addressCep || guardianObj.guardianAddressCep || null,
+        address_street: enrollmentData?.guardianAddressStreet || guardianObj.addressStreet || guardianObj.guardianAddressStreet || null,
+        address_number: enrollmentData?.guardianAddressNumber || guardianObj.addressNumber || guardianObj.guardianAddressNumber || null,
+        address_complement: enrollmentData?.guardianAddressComplement || guardianObj.addressComplement || guardianObj.guardianAddressComplement || null,
+        address_neighborhood: enrollmentData?.guardianAddressNeighborhood || guardianObj.addressNeighborhood || guardianObj.guardianAddressNeighborhood || null,
+        address_city: enrollmentData?.guardianAddressCity || guardianObj.addressCity || guardianObj.guardianAddressCity || 'Indaiatuba',
+        address_state: enrollmentData?.guardianAddressState || guardianObj.addressState || guardianObj.guardianAddressState || 'SP'
       };
 
-      let guardianQuery = enrollmentData.guardianCpf 
-        ? `cpf=eq.${encodeURIComponent(enrollmentData.guardianCpf)}`
-        : `email=eq.${encodeURIComponent(enrollmentData.guardianEmail)}`;
+      // Verificar se já existe vínculo na tabela student_guardians
+      if (studentId) {
+        const linkRes = await fetch(`${SUPABASE_URL}/rest/v1/student_guardians?student_id=eq.${studentId}&select=guardian_id`, {
+          method: 'GET',
+          headers
+        });
+        if (linkRes.ok) {
+          const links = await linkRes.json();
+          if (Array.isArray(links) && links.length > 0 && links[0].guardian_id) {
+            guardianId = links[0].guardian_id;
+          }
+        }
+      }
 
-      let guardianRes = await fetch(`${SUPABASE_URL}/rest/v1/guardians?${guardianQuery}`, {
-        method: 'GET',
-        headers
-      });
-      let existingGuardians = await guardianRes.json();
-      let guardianId = null;
+      // Se não encontrou pelo vínculo, buscar por CPF
+      if (!guardianId && guardianCpf) {
+        const gRes = await fetch(`${SUPABASE_URL}/rest/v1/guardians?cpf=eq.${encodeURIComponent(guardianCpf)}`, {
+          method: 'GET',
+          headers
+        });
+        if (gRes.ok) {
+          const foundG = await gRes.json();
+          if (Array.isArray(foundG) && foundG.length > 0) {
+            guardianId = foundG[0].id;
+          }
+        }
+      }
 
-      if (Array.isArray(existingGuardians) && existingGuardians.length > 0) {
-        guardianId = existingGuardians[0].id;
+      if (guardianId) {
         await fetch(`${SUPABASE_URL}/rest/v1/guardians?id=eq.${guardianId}`, {
           method: 'PATCH',
           headers,
           body: JSON.stringify(guardianPayload)
         });
-      } else if (enrollmentData.guardianName) {
-        let postG = await fetch(`${SUPABASE_URL}/rest/v1/guardians`, {
+      } else {
+        const postG = await fetch(`${SUPABASE_URL}/rest/v1/guardians`, {
           method: 'POST',
           headers,
           body: JSON.stringify(guardianPayload)
         });
-        let postedG = await postG.json();
-        if (Array.isArray(postedG) && postedG.length > 0) {
-          guardianId = postedG[0].id;
+        if (postG.ok) {
+          const postedG = await postG.json();
+          if (Array.isArray(postedG) && postedG.length > 0) {
+            guardianId = postedG[0].id;
+          }
         }
       }
 
-      // 3. Vincular Aluno e Responsável (public.student_guardians)
+      // Garantir o vínculo na tabela student_guardians
       if (studentId && guardianId) {
         await fetch(`${SUPABASE_URL}/rest/v1/student_guardians`, {
           method: 'POST',
@@ -339,9 +437,114 @@ export async function syncEnrollmentToSupabase(enrollmentData) {
       }
     }
 
+    // 3. Sincronizar Matrícula/Rematrícula (public.enrollments)
+    const academicYear = parseInt(enrollmentData?.academicYear || updatedStudent?.academicYear || 2027);
+    let enrollmentId = null;
+
+    if (studentId) {
+      const enrQueryRes = await fetch(`${SUPABASE_URL}/rest/v1/enrollments?student_id=eq.${studentId}&academic_year=eq.${academicYear}`, {
+        method: 'GET',
+        headers
+      });
+
+      let existingEnrollments = [];
+      if (enrQueryRes.ok) {
+        existingEnrollments = await enrQueryRes.json();
+      }
+
+      const validStatus = ['draft', 'pending_signature', 'active', 'cancelled', 'pending_reenrollment'].includes(enrollmentData?.status)
+        ? enrollmentData.status
+        : (enrollmentData?.status === 'reenrolled' ? 'active' : 'pending_reenrollment');
+
+      const enrollmentPayload = {
+        enrollment_code: enrollmentCode,
+        student_id: studentId,
+        academic_year: academicYear,
+        course_level: enrollmentData?.courseLevel || updatedStudent?.courseLevel || 'Ensino Fundamental',
+        current_grade: enrollmentData?.currentGrade || updatedStudent?.currentGrade || '6º Ano EF',
+        class_group: enrollmentData?.classGroup || updatedStudent?.classGroup || 'A',
+        status: validStatus,
+        school_contract_status: enrollmentData?.schoolContractStatus || 'pending',
+        material_contract_status: enrollmentData?.materialContractStatus || 'pending',
+        updated_at: new Date().toISOString()
+      };
+
+      if (Array.isArray(existingEnrollments) && existingEnrollments.length > 0) {
+        enrollmentId = existingEnrollments[0].id;
+        await fetch(`${SUPABASE_URL}/rest/v1/enrollments?id=eq.${enrollmentId}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(enrollmentPayload)
+        });
+      } else {
+        const postEnr = await fetch(`${SUPABASE_URL}/rest/v1/enrollments`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(enrollmentPayload)
+        });
+        if (postEnr.ok) {
+          const postedEnr = await postEnr.json();
+          if (Array.isArray(postedEnr) && postedEnr.length > 0) {
+            enrollmentId = postedEnr[0].id;
+          }
+        }
+      }
+    }
+
+    // 4. Sincronizar Contrato Financeiro (public.contracts)
+    if (studentId && enrollmentId && enrollmentData) {
+      const contractQueryRes = await fetch(`${SUPABASE_URL}/rest/v1/contracts?enrollment_id=eq.${enrollmentId}`, {
+        method: 'GET',
+        headers
+      });
+
+      let existingContracts = [];
+      if (contractQueryRes.ok) {
+        existingContracts = await contractQueryRes.json();
+      }
+
+      const contractPayload = {
+        contract_code: `CTR-${academicYear}-${rm}`,
+        enrollment_id: enrollmentId,
+        student_id: studentId,
+        status: (enrollmentData.schoolContractStatus === 'signed' || enrollmentData.status === 'active' || enrollmentData.status === 'reenrolled') ? 'signed' : 'pending',
+        tuition_gross_total: Number(enrollmentData.tuitionGrossTotal || 0),
+        tuition_nominal_total: Number(enrollmentData.tuitionNominalTotal || enrollmentData.tuitionGrossTotal || 0),
+        tuition_discount_total: Number(enrollmentData.tuitionDiscountTotal || 0),
+        tuition_discount_percentage: Number((Number(enrollmentData.tuitionDiscountPercentage || 0) / 100).toFixed(4)),
+        tuition_discount_reason: enrollmentData.tuitionDiscountReason || '',
+        tuition_discount_type: enrollmentData.tuitionDiscountType || 'Sem desconto',
+        installments_count: parseInt(enrollmentData.installmentsCount) || 13,
+        first_installment_value: Number(enrollmentData.firstInstallmentValue || 0),
+        regular_installment_value: Number(enrollmentData.regularInstallmentValue || 0),
+        material_total_value: Number(enrollmentData.materialTotalValue || 0),
+        material_total_extenso: enrollmentData.materialTotalExtenso || '',
+        material_installments_count: parseInt(enrollmentData.materialInstallmentsCount) || 12,
+        material_installment_value: Number(enrollmentData.materialInstallmentValue || 0),
+        material_installment_extenso: enrollmentData.materialInstallmentExtenso || '',
+        material_start_due_date: enrollmentData.materialStartDueDate || '',
+        material_end_due_date: enrollmentData.materialEndDueDate || ''
+      };
+
+      if (Array.isArray(existingContracts) && existingContracts.length > 0) {
+        await fetch(`${SUPABASE_URL}/rest/v1/contracts?id=eq.${existingContracts[0].id}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(contractPayload)
+        });
+      } else {
+        await fetch(`${SUPABASE_URL}/rest/v1/contracts`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(contractPayload)
+        });
+      }
+    }
+
     return true;
   } catch (err) {
-    console.warn('Erro ao sincronizar rematrícula com Supabase:', err);
+    console.error('Erro ao sincronizar rematrícula com Supabase:', err);
     return false;
   }
 }
+
