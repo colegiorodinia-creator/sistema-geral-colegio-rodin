@@ -1908,7 +1908,7 @@ export default function ReenrollmentModule() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="form-group sm:col-span-2">
-                    <label className="form-label">Nome Completo do Estudante: *</label>
+                    <label className="form-label">Nome Completo do Estudante:</label>
                     <input
                       type="text"
                       value={formData.studentName}
@@ -2087,7 +2087,7 @@ export default function ReenrollmentModule() {
                   </div>
 
                   <div className="form-group sm:col-span-2">
-                    <label className="form-label">Nome Completo do Responsável: *</label>
+                    <label className="form-label">Nome Completo do Responsável:</label>
                     <input
                       type="text"
                       value={formData.guardianName}
@@ -2174,7 +2174,7 @@ export default function ReenrollmentModule() {
                   </div>
 
                   <div className="form-group sm:col-span-2">
-                    <label className="form-label">CPF do Responsável Financeiro: *</label>
+                    <label className="form-label">CPF do Responsável Financeiro:</label>
                     <input
                       type="text"
                       value={formData.guardianCpf}
@@ -2195,7 +2195,7 @@ export default function ReenrollmentModule() {
                   </div>
 
                   <div className="form-group sm:col-span-2">
-                    <label className="form-label">E-mail do Responsável: *</label>
+                    <label className="form-label">E-mail do Responsável:</label>
                     <div className="relative">
                       <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
                       <input
@@ -2209,7 +2209,7 @@ export default function ReenrollmentModule() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Tel. Celular / WhatsApp: *</label>
+                    <label className="form-label">Tel. Celular / WhatsApp:</label>
                     <div className="relative">
                       <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
                       <input
@@ -2236,7 +2236,7 @@ export default function ReenrollmentModule() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {/* CEP com Busca Automática ViaCEP */}
                   <div className="form-group">
-                    <label className="form-label">CEP Residencial: *</label>
+                    <label className="form-label">CEP Residencial:</label>
                     <div className="relative">
                       <input
                         type="text"
@@ -2255,7 +2255,7 @@ export default function ReenrollmentModule() {
                   </div>
 
                   <div className="form-group sm:col-span-2">
-                    <label className="form-label">Rua / Logradouro: *</label>
+                    <label className="form-label">Rua / Logradouro:</label>
                     <input
                       type="text"
                       value={formData.guardianAddressStreet}
@@ -2265,7 +2265,7 @@ export default function ReenrollmentModule() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Número: *</label>
+                    <label className="form-label">Número:</label>
                     <input
                       type="text"
                       value={formData.guardianAddressNumber}
@@ -2286,7 +2286,7 @@ export default function ReenrollmentModule() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Bairro: *</label>
+                    <label className="form-label">Bairro:</label>
                     <input
                       type="text"
                       value={formData.guardianAddressNeighborhood}
@@ -2297,7 +2297,7 @@ export default function ReenrollmentModule() {
 
                   {/* UF do Endereço */}
                   <div className="form-group">
-                    <label className="form-label">UF do Endereço: *</label>
+                    <label className="form-label">UF do Endereço:</label>
                     <select
                       value={formData.guardianAddressState}
                       onChange={(e) => {
@@ -2322,7 +2322,7 @@ export default function ReenrollmentModule() {
 
                   {/* Cidade do Endereço */}
                   <div className="form-group">
-                    <label className="form-label">Cidade: *</label>
+                    <label className="form-label">Cidade:</label>
                     <select
                       value={cleanCityName(formData.guardianAddressCity)}
                       onChange={(e) => setFormData({ ...formData, guardianAddressCity: cleanCityName(e.target.value) })}
@@ -2409,7 +2409,7 @@ export default function ReenrollmentModule() {
 
                     {/* Campo 3: Valor de Contrato (Final com Desconto - Travado / Calculado pelo Desconto) */}
                     <div className="form-group">
-                      <label className="form-label">Valor de Contrato: *</label>
+                      <label className="form-label">Valor de Contrato:</label>
                       <div className="relative">
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-extrabold text-[12px] text-[#94A3B8] pointer-events-none">
                           R$
@@ -2460,7 +2460,7 @@ export default function ReenrollmentModule() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="form-group">
-                          <label className="form-label">Valor de Contrato: *</label>
+                          <label className="form-label">Valor de Contrato:</label>
                           <div className="relative">
                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-extrabold text-[12px] text-[#94A3B8] pointer-events-none">
                               R$
@@ -2557,7 +2557,7 @@ export default function ReenrollmentModule() {
                       {/* Linha 1: Valor de Contrato e Número de Parcelas */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="form-group">
-                          <label className="form-label">Valor de Contrato: *</label>
+                          <label className="form-label">Valor de Contrato:</label>
                           <div className="relative">
                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-extrabold text-[12px] text-[#94A3B8] pointer-events-none">
                               R$
@@ -2640,7 +2640,7 @@ export default function ReenrollmentModule() {
                         </div>
 
                         <div className="form-group">
-                          <label className="form-label">Parcelamento da 1ª Parcela (em até 3x):</label>
+                          <label className="form-label">Parcelamento da 1ª Parcela:</label>
                           <select
                             value={Math.min(formData.firstInstallmentSplit || 1, 3)}
                             onChange={(e) => setFormData({ ...formData, firstInstallmentSplit: parseInt(e.target.value) || 1 })}
@@ -2736,7 +2736,7 @@ export default function ReenrollmentModule() {
                 {/* Dados do Comprador */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="form-group">
-                    <label className="form-label">Nome do Comprador do Material Didático: *</label>
+                    <label className="form-label">Nome do Comprador do Material Didático:</label>
                     <input
                       type="text"
                       value={formData.materialBuyerName}
@@ -2750,7 +2750,7 @@ export default function ReenrollmentModule() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">CPF do Comprador do Material: *</label>
+                    <label className="form-label">CPF do Comprador do Material:</label>
                     <input
                       type="text"
                       value={formData.materialBuyerCpf}
@@ -2778,7 +2778,7 @@ export default function ReenrollmentModule() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {/* Valor Total */}
                     <div className="form-group">
-                      <label className="form-label">Valor Total do Material Didático: *</label>
+                      <label className="form-label">Valor Total do Material Didático:</label>
                       <div className="relative">
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-extrabold text-[12px] text-[#94A3B8] pointer-events-none">
                           R$
@@ -2795,7 +2795,7 @@ export default function ReenrollmentModule() {
 
                     {/* Número de Parcelas */}
                     <div className="form-group">
-                      <label className="form-label">Parcelas (Material Didático): *</label>
+                      <label className="form-label">Parcelas (Material Didático):</label>
                       <select
                         value={formData.materialInstallmentsCount || '12'}
                         onChange={(e) => {
@@ -2820,7 +2820,7 @@ export default function ReenrollmentModule() {
 
                     {/* Valor de Cada Parcela */}
                     <div className="form-group">
-                      <label className="form-label">Valor de Cada Parcela: *</label>
+                      <label className="form-label">Valor de Cada Parcela:</label>
                       <div className="relative">
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-extrabold text-[12px] text-[#94A3B8] pointer-events-none">
                           R$
@@ -2840,7 +2840,7 @@ export default function ReenrollmentModule() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
                     {/* Início Vencimento */}
                     <div className="form-group">
-                      <label className="form-label">Início do Vencimento: *</label>
+                      <label className="form-label">Início do Vencimento:</label>
                       <input
                         type="date"
                         value={toInputDateFormat(formData.materialStartDueDate)}
@@ -2851,7 +2851,7 @@ export default function ReenrollmentModule() {
 
                     {/* Final Vencimento */}
                     <div className="form-group">
-                      <label className="form-label">Término do Vencimento: *</label>
+                      <label className="form-label">Término do Vencimento:</label>
                       <input
                         type="date"
                         value={toInputDateFormat(formData.materialEndDueDate)}
@@ -3286,7 +3286,7 @@ export default function ReenrollmentModule() {
                 <form onSubmit={handleSaveDiscount} className="space-y-4">
                   <div className="form-group">
                     <label className="form-label">
-                      {editingDiscountId ? 'Editar Nome do Desconto: *' : 'Nome do Desconto / Benefício: *'}
+                      {editingDiscountId ? 'Editar Nome do Desconto:' : 'Nome do Desconto / Benefício:'}
                     </label>
                     <input
                       type="text"
@@ -3303,7 +3303,7 @@ export default function ReenrollmentModule() {
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Percentual de Desconto (%): *</label>
+                    <label className="form-label">Percentual de Desconto (%):</label>
                     <div className="relative">
                       <input
                         type="number"
