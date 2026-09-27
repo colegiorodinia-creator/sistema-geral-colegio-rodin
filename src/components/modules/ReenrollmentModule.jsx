@@ -344,7 +344,6 @@ export default function ReenrollmentModule() {
   });
 
   const [currentStep, setCurrentStep] = useState(1);
-  const [filterOnlyLePerini, setFilterOnlyLePerini] = useState(false);
   const [isLoadingCep, setIsLoadingCep] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [autoSaveStatus, setAutoSaveStatus] = useState('saved'); // 'saved' | 'saving'
@@ -1557,34 +1556,18 @@ export default function ReenrollmentModule() {
     showToast('Link de assinatura online gerado com sucesso!');
   };
 
-  // Filtragem da Lista de Estudantes por Nome ou RM (Insensível a acentos e maiúsculas/minúsculas) e Convênio Le Perini (DLP)
+  // Filtragem da Lista de Estudantes por Nome ou RM (Insensível a acentos e maiúsculas/minúsculas)
   const cleanQuery = removeAccents(searchQuery);
-  const totalLePeriniCount = students.filter(student => {
-    const rm = student.rmNumber || student.cocCode;
-    const enr = enrollments.find(e => e.studentId === student.id || e.rmNumber === rm);
-    return isLePeriniStudent(student, enr);
-  }).length;
 
   const filteredStudents = selectedStudentIdFilter
     ? students.filter(student => student.id === selectedStudentIdFilter)
-    : (filterOnlyLePerini
+    : (cleanQuery
         ? students.filter(student => {
-            const rm = student.rmNumber || student.cocCode;
-            const enr = enrollments.find(e => e.studentId === student.id || e.rmNumber === rm);
-            const isLP = isLePeriniStudent(student, enr);
-            if (!isLP) return false;
-            if (!cleanQuery) return true;
             const name = removeAccents(student.studentName || student.name || '');
-            const rmStr = String(rm || '').toLowerCase();
-            return name.includes(cleanQuery) || rmStr.includes(cleanQuery);
+            const rm = String(student.rmNumber || student.cocCode || '').toLowerCase();
+            return name.includes(cleanQuery) || rm.includes(cleanQuery);
           })
-        : (cleanQuery
-            ? students.filter(student => {
-                const name = removeAccents(student.studentName || student.name || '');
-                const rm = String(student.rmNumber || student.cocCode || '').toLowerCase();
-                return name.includes(cleanQuery) || rm.includes(cleanQuery);
-              })
-            : []));
+        : []);
 
   // Estatísticas Rápidas
   const totalStudents = students.length;
@@ -3429,7 +3412,7 @@ export default function ReenrollmentModule() {
   // =========================================================================
   // MODO 1: TELA INICIAL — BUSCA E LISTA DE ALUNOS PARA REMATRÍCULA
   // =========================================================================
-  const hasSearch = Boolean(searchQuery.trim()) || Boolean(selectedStudentIdFilter) || filterOnlyLePerini;
+  const hasSearch = Boolean(searchQuery.trim()) || Boolean(selectedStudentIdFilter);
 
   return (
     <div className={`w-full flex flex-col items-center transition-all duration-300 ${
@@ -3478,7 +3461,6 @@ export default function ReenrollmentModule() {
               onClick={() => {
                 setSelectedStudentIdFilter(null);
                 setSearchQuery('');
-                setFilterOnlyLePerini(false);
               }}
               className="absolute right-3 top-2.5 p-1 rounded-full text-[#94A3B8] hover:text-[#1E293B] hover:bg-[#F1F5F9] transition-colors"
               title="Limpar busca"
@@ -3486,53 +3468,6 @@ export default function ReenrollmentModule() {
               <X size={16} />
             </button>
           )}
-        </div>
-
-        {/* BOTÃO DE FILTRO RÁPIDO CONVÊNIO LE PERINI */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 pb-1">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setFilterOnlyLePerini(prev => !prev);
-                setSelectedStudentIdFilter(null);
-              }}
-              className={`px-3.5 py-2 rounded-xl font-black text-[12px] flex items-center gap-2 transition-all cursor-pointer shadow-xs border ${
-                filterOnlyLePerini
-                  ? 'bg-[#4F46E5] text-white border-[#4338CA] shadow-indigo-100 ring-2 ring-indigo-300'
-                  : 'bg-white text-[#4F46E5] border-[#C7D2FE] hover:bg-[#EEF2FF]'
-              }`}
-              title="Clique para ver todos os alunos do Convênio Le Perini (DLP)"
-            >
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Alunos Le Perini (DLP)</span>
-              <span className={`px-2 py-0.5 rounded-full text-[11px] font-black ${
-                filterOnlyLePerini ? 'bg-white/20 text-white' : 'bg-[#E0E7FF] text-[#4338CA]'
-              }`}>
-                {totalLePeriniCount} alunos
-              </span>
-            </button>
-
-            {filterOnlyLePerini && (
-              <button
-                type="button"
-                onClick={() => {
-                  setFilterOnlyLePerini(false);
-                  setSearchQuery('');
-                }}
-                className="text-[11.5px] font-bold text-[#64748B] hover:text-[#DC2626] transition-colors flex items-center gap-1 cursor-pointer bg-[#F1F5F9] px-2.5 py-1.5 rounded-lg border border-[#CBD5E1]"
-              >
-                <X size={13} />
-                <span>Mostrar todos</span>
-              </button>
-            )}
-          </div>
-
-          <span className="text-[11.5px] text-[#64748B] font-medium hidden sm:inline-block">
-            {filterOnlyLePerini 
-              ? `Exibindo ${filteredStudents.length} estudante(s) com Convênio Le Perini` 
-              : 'Clique no botão acima para listar todos os 287 alunos Le Perini'}
-          </span>
         </div>
 
         {/* Tabela de Alunos com % e Descrição da Planilha */}
@@ -3589,19 +3524,9 @@ export default function ReenrollmentModule() {
                       >
                         {/* 1. Aluno */}
                         <td className="p-3.5 text-left">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <strong className="text-[#1E293B] font-bold text-[13.5px] select-none" title={`RM: ${rm} • ${student.currentGrade || studentEnrollment?.currentGrade || 'Série 2027'}`}>
-                              {studentFullName}
-                            </strong>
-                            {isLePeriniStudent(student, studentEnrollment) && (
-                              <span 
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-black uppercase bg-[#EEF2FF] text-[#4F46E5] border border-[#C7D2FE] shrink-0 shadow-2xs"
-                                title="Estudante com Convênio Le Perini (DLP) - 1ª parcela igual às demais"
-                              >
-                                Le Perini
-                              </span>
-                            )}
-                          </div>
+                          <strong className="text-[#1E293B] font-bold text-[13.5px] select-none block" title={`RM: ${rm} • ${student.currentGrade || studentEnrollment?.currentGrade || 'Série 2027'}`}>
+                            {studentFullName}
+                          </strong>
                         </td>
 
                         {/* 2. Responsável Financeiro */}
