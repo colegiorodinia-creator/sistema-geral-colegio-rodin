@@ -465,9 +465,14 @@ export default function ReenrollmentModule() {
       updatedFirst = formatNumberToBRL(discountedAvista);
       updatedRegular = '0,00';
     } else {
-      const parcelVal = count > 0 ? (finalTuition / count) : finalTuition;
-      updatedFirst = formatNumberToBRL(parcelVal);
-      updatedRegular = formatNumberToBRL(parcelVal);
+      const { firstInstallment, regularInstallment } = calculateRodinInstallments(
+        finalTuition,
+        nominalNum,
+        count,
+        formData.isLePerini
+      );
+      updatedFirst = formatNumberToBRL(firstInstallment);
+      updatedRegular = formatNumberToBRL(regularInstallment);
     }
 
     const cleanOptName = (option.name || '').replace(/\s*\(\s*\d+[\.,]?\d*%\s*(?:na anuidade)?\s*\)/gi, '').trim();
@@ -507,9 +512,14 @@ export default function ReenrollmentModule() {
       updatedFirst = formatNumberToBRL(discountedAvista);
       updatedRegular = '0,00';
     } else {
-      const parcelVal = count > 0 ? (finalTuition / count) : finalTuition;
-      updatedFirst = formatNumberToBRL(parcelVal);
-      updatedRegular = formatNumberToBRL(parcelVal);
+      const { firstInstallment, regularInstallment } = calculateRodinInstallments(
+        finalTuition,
+        nominalNum,
+        count,
+        formData.isLePerini
+      );
+      updatedFirst = formatNumberToBRL(firstInstallment);
+      updatedRegular = formatNumberToBRL(regularInstallment);
     }
 
     setFormData(prev => ({
@@ -947,7 +957,7 @@ export default function ReenrollmentModule() {
     }
 
     const count = parseInt(planChoice) || 13;
-    const nominalNum = parseBRLToNumber(formData.tuitionNominalTotal) || total;
+    const nominalNum = parseBRLToNumber(formData.tuitionNominalTotal) || parseBRLToNumber(getNominalTuitionForGrade(formData.currentGrade)) || total;
     const isLP = isLePeriniOverride !== undefined ? Boolean(isLePeriniOverride) : Boolean(formData.isLePerini);
     const customFirstNum = (customFirstStr !== undefined && customFirstStr !== '') ? parseBRLToNumber(customFirstStr) : undefined;
 
@@ -1014,7 +1024,12 @@ export default function ReenrollmentModule() {
         regularInstallmentValue: '0,00'
       }));
     } else {
-      const regular = count > 0 ? (finalTuition / count) : finalTuition;
+      const { firstInstallment, regularInstallment } = calculateRodinInstallments(
+        finalTuition,
+        nominal,
+        count,
+        formData.isLePerini
+      );
       setFormData(prev => ({
         ...prev,
         tuitionNominalTotal: nominalFormatted,
@@ -1022,8 +1037,8 @@ export default function ReenrollmentModule() {
         tuitionDiscountTotal: finalTuitionFormatted,
         tuitionDiscountPercentage: clampedPct / 100,
         tuitionDiscountType: discountTypeVal !== undefined ? discountTypeVal : prev.tuitionDiscountType,
-        firstInstallmentValue: formatNumberToBRL(regular),
-        regularInstallmentValue: formatNumberToBRL(regular)
+        firstInstallmentValue: formatNumberToBRL(firstInstallment),
+        regularInstallmentValue: formatNumberToBRL(regularInstallment)
       }));
     }
   };
@@ -1796,7 +1811,12 @@ export default function ReenrollmentModule() {
                         const pctDec = pctRaw > 1 ? pctRaw / 100 : pctRaw;
                         const discountedNum = Math.max(0, nominalNum * (1 - pctDec));
                         const grossVal = formatNumberToBRL(pctDec > 0 ? discountedNum : nominalNum);
-                        const parcVal = formatNumberToBRL(countInst > 0 ? (parseBRLToNumber(grossVal) / countInst) : parseBRLToNumber(grossVal));
+                        const { firstInstallment, regularInstallment } = calculateRodinInstallments(
+                          pctDec > 0 ? discountedNum : nominalNum,
+                          nominalNum,
+                          countInst,
+                          formData.isLePerini
+                        );
 
                         setFormData({ 
                           ...formData, 
@@ -1804,8 +1824,8 @@ export default function ReenrollmentModule() {
                           tuitionNominalTotal: nominal,
                           tuitionGrossTotal: grossVal,
                           tuitionDiscountTotal: grossVal,
-                          firstInstallmentValue: parcVal,
-                          regularInstallmentValue: parcVal,
+                          firstInstallmentValue: formatNumberToBRL(firstInstallment),
+                          regularInstallmentValue: formatNumberToBRL(regularInstallment),
                           materialTotalValue: mat.total,
                           materialTotalExtenso: mat.extenso,
                           materialInstallmentValue: mat.installmentValue,
