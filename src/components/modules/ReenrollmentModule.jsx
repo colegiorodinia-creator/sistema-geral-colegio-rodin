@@ -1052,24 +1052,112 @@ export default function ReenrollmentModule() {
     }
   };
 
-  // Recalcular porcentagem quando o usuário edita a anuidade final diretamente
+  // Recalcular porcentagem de desconto e parcelas quando o usuário edita o valor do contrato diretamente
   const handleDirectTuitionChange = (finalRaw) => {
-    const finalNum = parseBRLToNumber(finalRaw);
-    const nominalNum = parseBRLToNumber(formData.tuitionNominalTotal) || finalNum;
-    
-    let pct = 0;
+    const cleanStr = String(finalRaw || '').replace(/[^\d.,]/g, '');
+    const finalNum = parseBRLToNumber(cleanStr);
+    const nominalStr = formData.tuitionNominalTotal || getNominalTuitionForGrade(formData.currentGrade, campaignConfig);
+    const nominalNum = parseBRLToNumber(nominalStr) || finalNum;
+
+    let pctDecimal = 0;
     if (nominalNum > 0 && finalNum < nominalNum) {
-      pct = ((nominalNum - finalNum) / nominalNum);
+      pctDecimal = (nominalNum - finalNum) / nominalNum;
+    }
+    const pctNumber = Math.round(pctDecimal * 10000) / 100;
+
+    const count = parseInt(formData.paymentPlanChoice) || 13;
+    const isAvista = formData.paymentPlanChoice === '1_avista_5off' || formData.paymentPlanChoice === '1';
+
+    let updatedFirst = formData.firstInstallmentValue;
+    let updatedReg = formData.regularInstallmentValue;
+
+    if (finalNum <= 0) {
+      updatedFirst = '0,00';
+      updatedReg = '0,00';
+    } else if (isAvista) {
+      updatedFirst = formatNumberToBRL(finalNum * 0.95);
+      updatedReg = '0,00';
+    } else {
+      const { firstInstallment, regularInstallment } = calculateRodinInstallments(
+        finalNum,
+        nominalNum,
+        count,
+        formData.isLePerini
+      );
+      updatedFirst = formatNumberToBRL(firstInstallment);
+      updatedReg = formatNumberToBRL(regularInstallment);
     }
 
     setFormData(prev => ({
       ...prev,
-      tuitionGrossTotal: finalRaw,
-      tuitionDiscountTotal: finalRaw,
-      tuitionDiscountPercentage: pct
+      tuitionGrossTotal: cleanStr,
+      tuitionDiscountTotal: cleanStr,
+      tuitionDiscountPercentage: pctDecimal,
+      tuitionDiscountType: pctNumber > 0 ? `${pctNumber}%` : 'Sem desconto',
+      firstInstallmentValue: updatedFirst,
+      regularInstallmentValue: updatedReg
     }));
+  };
 
-    handleCalculateInstallments(finalRaw, formData.paymentPlanChoice);
+  // Ao perder o foco do campo de valor de contrato, formata com padrão monetário e salva
+  const handleDirectTuitionBlur = (e) => {
+    const rawVal = e?.target?.value !== undefined ? e.target.value : formData.tuitionGrossTotal;
+    const finalNum = parseBRLToNumber(rawVal);
+    const nominalStr = formData.tuitionNominalTotal || getNominalTuitionForGrade(formData.currentGrade, campaignConfig);
+    const nominalNum = parseBRLToNumber(nominalStr) || finalNum;
+    const formatted = formatNumberToBRL(finalNum);
+
+    let pctDecimal = 0;
+    if (nominalNum > 0 && finalNum < nominalNum) {
+      pctDecimal = (nominalNum - finalNum) / nominalNum;
+    }
+    const pctNumber = Math.round(pctDecimal * 10000) / 100;
+
+    const count = parseInt(formData.paymentPlanChoice) || 13;
+    const isAvista = formData.paymentPlanChoice === '1_avista_5off' || formData.paymentPlanChoice === '1';
+
+    let updatedFirst = '0,00';
+    let updatedReg = '0,00';
+
+    if (finalNum > 0) {
+      if (isAvista) {
+        updatedFirst = formatNumberToBRL(finalNum * 0.95);
+      } else {
+        const { firstInstallment, regularInstallment } = calculateRodinInstallments(
+          finalNum,
+          nominalNum,
+          count,
+          formData.isLePerini
+        );
+        updatedFirst = formatNumberToBRL(firstInstallment);
+        updatedReg = formatNumberToBRL(regularInstallment);
+      }
+    }
+
+    const nextFormData = {
+      ...formData,
+      tuitionGrossTotal: formatted,
+      tuitionDiscountTotal: formatted,
+      tuitionDiscountPercentage: pctDecimal,
+      tuitionDiscountType: pctNumber > 0 ? `${pctNumber}%` : 'Sem desconto',
+      firstInstallmentValue: updatedFirst,
+      regularInstallmentValue: updatedReg
+    };
+
+    setFormData(nextFormData);
+
+    const updatedStudent = buildUpdatedStudentObject();
+    const enrollmentData = {
+      ...buildEnrollmentDataObject(formData.schoolContractStatus, formData.materialContractStatus),
+      tuitionGrossTotal: finalNum,
+      tuitionDiscountTotal: finalNum,
+      tuitionDiscountPercentage: pctDecimal,
+      tuitionDiscountType: pctNumber > 0 ? `${pctNumber}%` : 'Sem desconto',
+      firstInstallmentValue: parseBRLToNumber(updatedFirst),
+      regularInstallmentValue: parseBRLToNumber(updatedReg)
+    };
+    saveReenrollment(enrollmentData, updatedStudent);
+    lastSavedSnapshotRef.current = JSON.stringify(nextFormData);
   };
 
   // Busca CEP via ViaCEP API com auto-seleção de UF e Cidade
@@ -2502,7 +2590,7 @@ export default function ReenrollmentModule() {
                       </div>
                     </div>
 
-                    {/* Campo 3: Valor de Contrato (Final com Desconto - Travado / Calculado pelo Desconto) */}
+                    {/* Campo 3: Valor de Contrato (Editável - calcula % de desconto e parcelas automaticamente) */}
                     <div className="form-group">
                       <label className="form-label">Valor de Contrato:</label>
                       <div className="relative">
@@ -2511,10 +2599,14 @@ export default function ReenrollmentModule() {
                         </span>
                         <input
                           type="text"
-                          readOnly
                           value={formData.tuitionGrossTotal}
-                          className="form-control !pl-10 font-black text-[16px] text-[#1E293B] bg-[#F8FAFC] border-[#CBD5E1] cursor-not-allowed"
-                          title="Valor final da anuidade para o contrato escolar (calculado automaticamente pelo percentual de desconto)"
+                          onChange={(e) => handleDirectTuitionChange(e.target.value)}
+                          onBlur={handleDirectTuitionBlur}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') e.currentTarget.blur();
+                          }}
+                          className="form-control !pl-10 font-black text-[16px] text-[#1E293B] bg-white border-[#CBD5E1] focus:border-[#4338CA] focus:ring-1 focus:ring-[#4338CA]"
+                          title="Digite o valor final da anuidade para calcular a porcentagem de desconto automaticamente"
                         />
                       </div>
                     </div>
@@ -2584,10 +2676,14 @@ export default function ReenrollmentModule() {
                             </span>
                             <input
                               type="text"
-                              readOnly
                               value={formData.tuitionGrossTotal}
-                              className="form-control !pl-10 font-black text-[16px] text-[#1E293B] bg-[#F8FAFC] border-[#CBD5E1] cursor-not-allowed"
-                              title="Valor final da anuidade para o contrato escolar (calculado automaticamente pelo percentual de desconto)"
+                              onChange={(e) => handleDirectTuitionChange(e.target.value)}
+                              onBlur={handleDirectTuitionBlur}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.currentTarget.blur();
+                              }}
+                              className="form-control !pl-10 font-black text-[16px] text-[#1E293B] bg-white border-[#CBD5E1] focus:border-[#4338CA] focus:ring-1 focus:ring-[#4338CA]"
+                              title="Digite o valor final da anuidade para calcular a porcentagem de desconto automaticamente"
                             />
                           </div>
                         </div>
@@ -2681,10 +2777,14 @@ export default function ReenrollmentModule() {
                             </span>
                             <input
                               type="text"
-                              readOnly
                               value={formData.tuitionGrossTotal}
-                              className="form-control !pl-10 font-black text-[16px] text-[#1E293B] bg-[#F8FAFC] border-[#CBD5E1] cursor-not-allowed"
-                              title="Valor final da anuidade para o contrato escolar (calculado automaticamente pelo percentual de desconto)"
+                              onChange={(e) => handleDirectTuitionChange(e.target.value)}
+                              onBlur={handleDirectTuitionBlur}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') e.currentTarget.blur();
+                              }}
+                              className="form-control !pl-10 font-black text-[16px] text-[#1E293B] bg-white border-[#CBD5E1] focus:border-[#4338CA] focus:ring-1 focus:ring-[#4338CA]"
+                              title="Digite o valor final da anuidade para calcular a porcentagem de desconto e as parcelas automaticamente"
                             />
                           </div>
                         </div>
