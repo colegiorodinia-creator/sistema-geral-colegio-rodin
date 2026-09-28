@@ -2635,33 +2635,11 @@ export default function ReenrollmentModule() {
 
                 {/* Bloco 2: Condições de Pagamento e Parcelamento */}
                 <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#E2E8F0]">
-                    <div className="flex items-center gap-2">
-                      <Clock size={15} className="text-[#F45206]" />
-                      <span className="text-[13.5px] font-bold text-[#1E293B]">
-                        Plano de Pagamento
-                      </span>
-                    </div>
-
-                    {/* Toggle Aluno Le Perini no Plano de Pagamento */}
-                    <div className="flex items-center gap-2.5 px-3 py-1.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl transition-all">
-                      <label htmlFor="chk-le-perini-step4" className="font-bold text-[12.5px] text-[#1E40AF] cursor-pointer select-none">
-                        Aluno Le Perini
-                      </label>
-                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                        <input
-                          id="chk-le-perini-step4"
-                          type="checkbox"
-                          checked={Boolean(formData.isLePerini)}
-                          onChange={(e) => handleToggleLePerini(e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-9 h-5 bg-[#CBD5E1] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2563EB]"></div>
-                      </label>
-                      <span className={`text-[11px] font-bold ${formData.isLePerini ? 'text-[#2563EB]' : 'text-[#64748B]'}`}>
-                        {formData.isLePerini ? 'Ativo (Parcelas Iguais)' : 'Inativo (1ª com 13º)'}
-                      </span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <Clock size={15} className="text-[#F45206]" />
+                    <span className="text-[13.5px] font-bold text-[#1E293B]">
+                      Plano de Pagamento
+                    </span>
                   </div>
 
                   {/* Formulário Dinâmico: À Vista vs Parcelado */}
