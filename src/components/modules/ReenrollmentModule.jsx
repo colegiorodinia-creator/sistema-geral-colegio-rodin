@@ -798,9 +798,9 @@ export default function ReenrollmentModule() {
       ? 'reenrolled'
       : (schoolSigned || materialSigned ? 'partial_signed' : 'pending_reenrollment');
 
-    const isCustomDownPayment = existingEnrollment.hasCustomFirstInstallment;
-    const initialFirstVal = is100Discount ? '0,00' : ((!schoolSigned && !isCustomDownPayment) ? defaultFirstParcelValue : firstVal);
-    const initialRegVal = is100Discount ? '0,00' : ((!schoolSigned && !isCustomDownPayment) ? defaultRegParcelValue : regVal);
+    const isCustomDownPayment = Boolean(existingEnrollment.hasCustomFirstInstallment);
+    const initialFirstVal = is100Discount ? '0,00' : ((!isCustomDownPayment) ? defaultFirstParcelValue : firstVal);
+    const initialRegVal = is100Discount ? '0,00' : ((!isCustomDownPayment) ? defaultRegParcelValue : regVal);
 
     const gState = primaryGuardian.guardianAddressState || primaryGuardian.addressState || existingEnrollment.guardianAddressState || 'SP';
     const gCity = cleanCityName(primaryGuardian.guardianAddressCity || primaryGuardian.addressCity || existingEnrollment.guardianAddressCity || 'Indaiatuba');
@@ -1301,6 +1301,51 @@ export default function ReenrollmentModule() {
       signatureSha256: 'PRESENCIAL_FISICO_SETOR_MATRICULAS',
       isPresencial: true
     };
+  };
+
+  // Alternar status de Aluno Le Perini e recalcular imediatamente as parcelas (1ª e demais)
+  const handleToggleLePerini = (isChecked) => {
+    const total = parseBRLToNumber(formData.tuitionGrossTotal);
+    const nominalNum = parseBRLToNumber(formData.tuitionNominalTotal) || parseBRLToNumber(getNominalTuitionForGrade(formData.currentGrade, campaignConfig)) || total;
+    const count = parseInt(formData.paymentPlanChoice) || 13;
+    const isAvista = formData.paymentPlanChoice === '1_avista_5off' || formData.paymentPlanChoice === '1';
+
+    let newFirst = formData.firstInstallmentValue;
+    let newReg = formData.regularInstallmentValue;
+
+    if (total > 0 && !isAvista) {
+      const { firstInstallment, regularInstallment } = calculateRodinInstallments(
+        total,
+        nominalNum,
+        count,
+        isChecked
+      );
+      newFirst = formatNumberToBRL(firstInstallment);
+      newReg = formatNumberToBRL(regularInstallment);
+    }
+
+    const nextFormData = {
+      ...formData,
+      isLePerini: isChecked,
+      firstInstallmentValue: newFirst,
+      regularInstallmentValue: newReg
+    };
+
+    setFormData(nextFormData);
+
+    // Salvar imediatamente no banco de dados e no estado da aplicação
+    const updatedStudent = {
+      ...buildUpdatedStudentObject(),
+      isLePerini: isChecked
+    };
+    const enrollmentData = {
+      ...buildEnrollmentDataObject(formData.schoolContractStatus, formData.materialContractStatus),
+      isLePerini: isChecked,
+      firstInstallmentValue: parseBRLToNumber(newFirst),
+      regularInstallmentValue: parseBRLToNumber(newReg)
+    };
+    saveReenrollment(enrollmentData, updatedStudent);
+    lastSavedSnapshotRef.current = JSON.stringify(nextFormData);
   };
 
   // Ação 1: Salvar Apenas os Dados Cadastrais e do Contrato (NÃO altera o status)
@@ -1949,27 +1994,7 @@ export default function ReenrollmentModule() {
                       id="chk-le-perini-form"
                       type="checkbox"
                       checked={Boolean(formData.isLePerini)}
-                      onChange={(e) => {
-                        const isChecked = e.target.checked;
-                        handleCalculateInstallments(formData.tuitionGrossTotal, formData.paymentPlanChoice, undefined, isChecked);
-                        const nextFormData = {
-                          ...formData,
-                          isLePerini: isChecked
-                        };
-                        setFormData(nextFormData);
-
-                        // Salvar imediatamente no banco de dados e no estado da aplicação
-                        const updatedStudent = {
-                          ...buildUpdatedStudentObject(),
-                          isLePerini: isChecked
-                        };
-                        const enrollmentData = {
-                          ...buildEnrollmentDataObject(formData.schoolContractStatus, formData.materialContractStatus),
-                          isLePerini: isChecked
-                        };
-                        saveReenrollment(enrollmentData, updatedStudent);
-                        lastSavedSnapshotRef.current = JSON.stringify(nextFormData);
-                      }}
+                      onChange={(e) => handleToggleLePerini(e.target.checked)}
                       className="sr-only peer"
                     />
                     <div className="w-10 h-5 bg-[#CBD5E1] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2563EB]"></div>
@@ -2518,11 +2543,33 @@ export default function ReenrollmentModule() {
 
                 {/* Bloco 2: Condições de Pagamento e Parcelamento */}
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Clock size={15} className="text-[#F45206]" />
-                    <span className="text-[13.5px] font-bold text-[#1E293B]">
-                      Plano de Pagamento
-                    </span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#E2E8F0]">
+                    <div className="flex items-center gap-2">
+                      <Clock size={15} className="text-[#F45206]" />
+                      <span className="text-[13.5px] font-bold text-[#1E293B]">
+                        Plano de Pagamento
+                      </span>
+                    </div>
+
+                    {/* Toggle Aluno Le Perini no Plano de Pagamento */}
+                    <div className="flex items-center gap-2.5 px-3 py-1.5 bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl transition-all">
+                      <label htmlFor="chk-le-perini-step4" className="font-bold text-[12.5px] text-[#1E40AF] cursor-pointer select-none">
+                        Aluno Le Perini
+                      </label>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          id="chk-le-perini-step4"
+                          type="checkbox"
+                          checked={Boolean(formData.isLePerini)}
+                          onChange={(e) => handleToggleLePerini(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-[#CBD5E1] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#2563EB]"></div>
+                      </label>
+                      <span className={`text-[11px] font-bold ${formData.isLePerini ? 'text-[#2563EB]' : 'text-[#64748B]'}`}>
+                        {formData.isLePerini ? 'Ativo (Parcelas Iguais)' : 'Inativo (1ª com 13º)'}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Formulário Dinâmico: À Vista vs Parcelado */}
