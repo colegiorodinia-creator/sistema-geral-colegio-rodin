@@ -498,6 +498,7 @@ export function AppProvider({ children }) {
         setStudents(prev => {
           const updated = prev.map(localStudent => {
             const match = dbStudents.find(d => String(d.rm_number) === String(localStudent.rmNumber) || String(d.coc_code) === String(localStudent.cocCode));
+            const officialStd = (ALL_STUDENTS_2027 || []).find(os => os.rmNumber === localStudent.rmNumber || os.cocCode === localStudent.cocCode);
             if (match) {
               return {
                 ...localStudent,
@@ -513,8 +514,18 @@ export function AppProvider({ children }) {
                 rgIssueDate: match.rg_issue_date || localStudent.rgIssueDate,
                 cpf: match.cpf || localStudent.cpf,
                 studentPhone: match.student_phone || localStudent.studentPhone,
-                courseLevel: match.course_level || localStudent.courseLevel,
-                currentGrade: match.current_grade || localStudent.currentGrade,
+                courseLevel: officialStd?.courseLevel || localStudent.courseLevel || match.course_level,
+                currentGrade: officialStd?.currentGrade || localStudent.currentGrade || match.current_grade,
+                serie_ano_atual: officialStd?.serie_ano_atual || localStudent.serie_ano_atual || match.current_grade,
+                nova_serie_ano_2027: officialStd?.nova_serie_ano_2027 || localStudent.nova_serie_ano_2027,
+                newGrade2027: officialStd?.newGrade2027 || localStudent.newGrade2027,
+                percentual_desconto_2027: officialStd?.percentual_desconto_2027 !== undefined ? officialStd.percentual_desconto_2027 : localStudent.percentual_desconto_2027,
+                valor_nominal_anuidade_2027: officialStd?.valor_nominal_anuidade_2027 !== undefined ? officialStd.valor_nominal_anuidade_2027 : localStudent.valor_nominal_anuidade_2027,
+                valor_total_anuidade_2027: officialStd?.valor_total_anuidade_2027 !== undefined ? officialStd.valor_total_anuidade_2027 : localStudent.valor_total_anuidade_2027,
+                valor_1a_parcela_2027: officialStd?.valor_1a_parcela_2027 !== undefined ? officialStd.valor_1a_parcela_2027 : localStudent.valor_1a_parcela_2027,
+                valor_demais_parcelas_2027: officialStd?.valor_demais_parcelas_2027 !== undefined ? officialStd.valor_demais_parcelas_2027 : localStudent.valor_demais_parcelas_2027,
+                tipo_desconto_2027: officialStd?.tipo_desconto_2027 || localStudent.tipo_desconto_2027,
+                observacao_desconto_2027: officialStd?.observacao_desconto_2027 || localStudent.observacao_desconto_2027,
                 classGroup: match.class_group || localStudent.classGroup,
                 schoolShift: match.school_shift || localStudent.schoolShift,
                 schoolUnit: match.school_unit || localStudent.schoolUnit,
@@ -568,7 +579,7 @@ export function AppProvider({ children }) {
   const [classes, setClasses] = useState(ALL_CLASSES_2027 && ALL_CLASSES_2027.length > 0 ? ALL_CLASSES_2027 : INITIAL_CLASSES);
 
   // Cache Buster para garantir percentuais e valores oficiais rigorosamente fiéis à planilha de 2027
-  const DB_VERSION = 'rodin_2027_v20_exact_sheet_discount_and_values';
+  const DB_VERSION = 'rodin_2027_v21_enforce_live_sync';
   try {
     if (typeof window !== 'undefined' && localStorage.getItem('rodin_db_version') !== DB_VERSION) {
       localStorage.removeItem('rodin_students');

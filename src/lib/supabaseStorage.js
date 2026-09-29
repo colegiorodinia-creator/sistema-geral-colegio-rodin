@@ -512,7 +512,11 @@ export async function syncEnrollmentToSupabase(enrollmentData, updatedStudent = 
         tuition_gross_total: Number(enrollmentData.tuitionGrossTotal || 0),
         tuition_nominal_total: Number(enrollmentData.tuitionNominalTotal || enrollmentData.tuitionGrossTotal || 0),
         tuition_discount_total: Number(enrollmentData.tuitionDiscountTotal || 0),
-        tuition_discount_percentage: Number((Number(enrollmentData.tuitionDiscountPercentage || 0) / 100).toFixed(4)),
+        tuition_discount_percentage: (() => {
+          const rawPct = Number(enrollmentData.tuitionDiscountPercentage || 0);
+          const decimalPct = rawPct > 1 ? rawPct / 100 : rawPct;
+          return Number(decimalPct.toFixed(4));
+        })(),
         tuition_discount_reason: enrollmentData.tuitionDiscountReason || '',
         tuition_discount_type: enrollmentData.tuitionDiscountType || 'Sem desconto',
         installments_count: parseInt(enrollmentData.installmentsCount) || 13,

@@ -753,11 +753,7 @@ export default function ReenrollmentModule() {
       ''
     );
     const has100Keyword = /100%|bolsa\s*100|permuta\s*100|integral\s*100/i.test(discountReasonText);
-    const has0Amount = (student.valor_total_anuidade_2027 === 0 && student.valor_total_anuidade_2027 !== undefined && student.valor_total_anuidade_2027 !== null) ||
-                       (existingEnrollment.tuitionDiscountTotal === 0 && existingEnrollment.tuitionDiscountTotal !== undefined && existingEnrollment.tuitionDiscountTotal !== null) ||
-                       (enrFin.tuitionGrossTotal === 0 && enrFin.tuitionGrossTotal !== undefined && enrFin.tuitionGrossTotal !== null);
-
-    const is100Discount = normalizedDiscountPct === 100 || (has100Keyword && (has0Amount || normalizedDiscountPct >= 99));
+    const is100Discount = normalizedDiscountPct === 100 || (has100Keyword && normalizedDiscountPct >= 99);
 
     let grossVal = '0,00';
     if (is100Discount) {
