@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Pré-visualização do PDF - Alberto Koji</title>
+  <style>
+    body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: sans-serif; }
+    .header { height: 48px; background: #0f172a; color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+    .header h1 { font-size: 16px; margin: 0; }
+    .header a { color: #f97316; font-weight: bold; text-decoration: none; border: 1px solid #f97316; padding: 6px 14px; border-radius: 6px; transition: all 0.2s; }
+    .header a:hover { background: #f97316; color: white; }
+    iframe { width: 100%; height: calc(100% - 48px); border: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📄 Colégio Rodin • Teste de Proporção e Checkbox (Alberto Koji)</h1>
+    <a href="/test_alberto_preview.pdf" target="_blank" download="Requerimento_Alberto_Koji_Teste.pdf">Baixar PDF de Teste</a>
+  </div>
+  <iframe src="/test_alberto_preview.pdf#toolbar=1&navpanes=0"></iframe>
+</body>
+</html>

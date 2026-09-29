@@ -579,7 +579,7 @@ export function AppProvider({ children }) {
   const [classes, setClasses] = useState(ALL_CLASSES_2027 && ALL_CLASSES_2027.length > 0 ? ALL_CLASSES_2027 : INITIAL_CLASSES);
 
   // Cache Buster para garantir percentuais e valores oficiais rigorosamente fiéis à planilha de 2027
-  const DB_VERSION = 'rodin_2027_v21_enforce_live_sync';
+  const DB_VERSION = 'rodin_2027_v22_fix_all_grades_official';
   try {
     if (typeof window !== 'undefined' && localStorage.getItem('rodin_db_version') !== DB_VERSION) {
       localStorage.removeItem('rodin_students');
@@ -604,7 +604,11 @@ export function AppProvider({ children }) {
             return {
               ...s,
               ...(officialStd || {}),
-              ...s,
+              currentGrade: officialStd?.currentGrade || s.currentGrade,
+              serie_ano_atual: officialStd?.serie_ano_atual || officialStd?.currentGrade || s.serie_ano_atual,
+              nova_serie_ano_2027: officialStd?.nova_serie_ano_2027 || officialStd?.newGrade2027 || s.nova_serie_ano_2027,
+              newGrade2027: officialStd?.newGrade2027 || officialStd?.nova_serie_ano_2027 || s.newGrade2027,
+              courseLevel: officialStd?.courseLevel || s.courseLevel,
               percentual_desconto_2027: officialStd?.percentual_desconto_2027 !== undefined ? officialStd.percentual_desconto_2027 : s.percentual_desconto_2027,
               valor_nominal_anuidade_2027: officialStd?.valor_nominal_anuidade_2027 !== undefined ? officialStd.valor_nominal_anuidade_2027 : s.valor_nominal_anuidade_2027,
               valor_total_anuidade_2027: officialStd?.valor_total_anuidade_2027 !== undefined ? officialStd.valor_total_anuidade_2027 : s.valor_total_anuidade_2027,
@@ -640,7 +644,9 @@ export function AppProvider({ children }) {
             return {
               ...e,
               ...(officialEnr || {}),
-              ...e,
+              currentGrade: officialEnr?.currentGrade || e.currentGrade,
+              newGrade: officialEnr?.newGrade || e.newGrade,
+              courseLevel: officialEnr?.courseLevel || e.courseLevel,
               tuitionDiscountPercentage: officialEnr?.tuitionDiscountPercentage !== undefined ? officialEnr.tuitionDiscountPercentage : e.tuitionDiscountPercentage,
               tuitionGrossTotal: officialEnr?.tuitionGrossTotal !== undefined ? officialEnr.tuitionGrossTotal : e.tuitionGrossTotal,
               tuitionDiscountTotal: officialEnr?.tuitionDiscountTotal !== undefined ? officialEnr.tuitionDiscountTotal : e.tuitionDiscountTotal,
