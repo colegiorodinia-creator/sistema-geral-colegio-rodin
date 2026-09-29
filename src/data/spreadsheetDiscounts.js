@@ -341,33 +341,37 @@ export const SPREADSHEET_DISCOUNT_DESCRIPTIONS = [
 
 /**
  * Normaliza o percentual de desconto para exibição e comparação
+ * Preserva o percentual exato conforme a planilha oficial de descontos 2027 (ex: 13.85%, 9.23%, 25%, etc.)
  */
 export function normalizeDiscountPct(val) {
   if (val === null || val === undefined || val === '') return 0;
   const num = typeof val === 'number' ? val : parseFloat(String(val).replace(',', '.'));
   if (isNaN(num)) return 0;
-  // Se for decimal entre 0 e 1 (ex: 0.25 -> 25%)
+  // Se for decimal entre 0 e 1 (ex: 0.25 -> 25%, 0.1385 -> 13.85%)
   const pct = num <= 1 && num > 0 ? num * 100 : num;
-  // Arredondar casos fracionários da planilha (9.23% -> 10%, 13.85% -> 15%, 23.08% -> 25%)
-  if (Math.abs(pct - 9.23) < 0.5) return 10;
-  if (Math.abs(pct - 13.85) < 0.5) return 15;
-  if (Math.abs(pct - 23.08) < 0.5) return 25;
-  return Math.round(pct * 10) / 10;
+  return Math.round(pct * 100) / 100;
 }
 
 /**
  * Obtém a descrição e a porcentagem oficial de desconto de um aluno
  */
 export function getDiscountDetails(student, enrollment) {
+  const fin = enrollment?.financial || {};
   const rawPct = enrollment?.tuitionDiscountPercentage !== undefined 
     ? enrollment.tuitionDiscountPercentage 
-    : (student?.percentual_desconto_2027 || 0);
+    : (fin.tuitionDiscountPercentage !== undefined 
+      ? fin.tuitionDiscountPercentage 
+      : (student?.percentual_desconto_2027 || 0));
     
   const pct = normalizeDiscountPct(rawPct);
   
   const desc = (
     enrollment?.tuitionDiscountReason || 
+    fin.tuitionDiscountReason ||
     student?.observacao_desconto_2027 || 
+    enrollment?.tuitionDiscountDescription ||
+    fin.tuitionDiscountDescription ||
+    enrollment?.tuitionDiscountType ||
     student?.tipo_desconto_2027 || 
     (pct === 0 ? 'Sem desconto' : '')
   ).trim();

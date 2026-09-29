@@ -201,9 +201,10 @@ export const formatCronogramaLabel = (startDateStr, endDateStr) => {
 };
 
 
-// Mapeamento automático de progressão de série (ex: 6º Ano -> 7º Ano)
+// Mapeamento automático de progressão de série (ex: 6º Ano -> 7º Ano, 9º Ano -> 1ª Série EM)
+// Nota: Rematrícula é a partir do 7º ano até a 3ª série (não existe rematrícula para 6º ano)
 const getNextGrade = (currentGrade) => {
-  if (!currentGrade) return '6º Ano EF';
+  if (!currentGrade) return '7º Ano EF';
   const g = currentGrade.toUpperCase();
   if (g.includes('6º ANO') || g.includes('6° ANO') || g.includes('6º EF') || g.includes('6 ANO')) return '7º Ano EF';
   if (g.includes('7º ANO') || g.includes('7° ANO') || g.includes('7º EF') || g.includes('7 ANO')) return '8º Ano EF';
@@ -211,7 +212,7 @@ const getNextGrade = (currentGrade) => {
   if (g.includes('9º ANO') || g.includes('9° ANO') || g.includes('9º EF') || g.includes('9 ANO')) return '1ª Série EM';
   if (g.includes('1ª SÉRIE') || g.includes('1A SERIE') || g.includes('1º EM') || g.includes('1º ANO EM')) return '2ª Série EM';
   if (g.includes('2ª SÉRIE') || g.includes('2A SERIE') || g.includes('2º EM') || g.includes('2º ANO EM')) return '3ª Série EM';
-  if (g.includes('3ª SÉRIE') || g.includes('3A SERIE') || g.includes('3º EM') || g.includes('TERCEIR')) return 'Pré-Vestibular (PPV)';
+  if (g.includes('3ª SÉRIE') || g.includes('3A SERIE') || g.includes('3º EM') || g.includes('TERCEIR')) return 'Concluiu';
   return currentGrade;
 };
 
@@ -220,11 +221,14 @@ const getNextGrade = (currentGrade) => {
 // Opções de Descontos Padrão e Histórico de Parcerias (Ex: Le Perini 2025, Le Perini 2027, etc.)
 export const INITIAL_DISCOUNT_OPTIONS = [
   { id: 'sem_desconto', name: 'Sem desconto', percentage: 0, reason: 'Anuidade integral conforme tabela padrão.' },
+  { id: 'desc_4_62', name: '4,62% (5% da 2ª)', percentage: 4.62, reason: 'Desconto de 5% a partir da 2ª parcela (4,62% na anuidade)' },
   { id: 'desc_5', name: '5%', percentage: 5, reason: 'Desconto de 5% na anuidade' },
+  { id: 'desc_9_23', name: '9,23% (10% da 2ª)', percentage: 9.23, reason: 'Desconto de 10% a partir da 2ª parcela (9,23% na anuidade)' },
   { id: 'desc_10', name: '10%', percentage: 10, reason: 'Desconto de 10% na anuidade' },
+  { id: 'desc_13_85', name: '13,85% (15% da 2ª)', percentage: 13.85, reason: 'Desconto de 15% a partir da 2ª parcela (13,85% na anuidade)' },
   { id: 'desc_15', name: '15%', percentage: 15, reason: 'Desconto de 15% na anuidade' },
   { id: 'desc_20', name: '20%', percentage: 20, reason: 'Desconto de 20% na anuidade' },
-  { id: 'desc_25', name: '25%', percentage: 25, reason: 'Desconto de 25% na anuidade' },
+  { id: 'desc_25', name: '25% (Le Perini)', percentage: 25, reason: 'Parceria Le Perini 25% na anuidade' },
   { id: 'desc_30', name: '30%', percentage: 30, reason: 'Desconto de 30% na anuidade' },
   { id: 'desc_35', name: '35%', percentage: 35, reason: 'Desconto de 35% na anuidade' },
   { id: 'desc_40', name: '40%', percentage: 40, reason: 'Desconto de 40% na anuidade' },
@@ -423,15 +427,16 @@ export default function ReenrollmentModule() {
 
   // Garantir que descontos pré-existentes ou importados do aluno apareçam nas opções por percentual
   useEffect(() => {
-    const pct = formData.tuitionDiscountPercentage !== undefined && formData.tuitionDiscountPercentage !== null
-      ? Math.round(formData.tuitionDiscountPercentage > 1 ? formData.tuitionDiscountPercentage : formData.tuitionDiscountPercentage * 100)
-      : (formData.tuitionDiscountType && String(formData.tuitionDiscountType).match(/\d+/) ? parseInt(String(formData.tuitionDiscountType).match(/\d+/)[0]) : 0);
+    const rawVal = formData.tuitionDiscountPercentage;
+    const pct = rawVal !== undefined && rawVal !== null
+      ? (Number(rawVal) > 1 ? Number(rawVal) : Math.round(Number(rawVal) * 10000) / 100)
+      : (formData.tuitionDiscountType && String(formData.tuitionDiscountType).match(/\d+([.,]\d+)?/) ? parseFloat(String(formData.tuitionDiscountType).match(/\d+([.,]\d+)?/)[0].replace(',', '.')) : 0);
 
     if (pct > 0) {
-      const exists = discountOptions.some(o => o.percentage === pct);
+      const exists = discountOptions.some(o => Math.abs((o.percentage || 0) - pct) < 0.01);
       if (!exists) {
         const autoOpt = {
-          id: `desc_${pct}`,
+          id: `desc_${String(pct).replace('.', '_')}`,
           name: `${pct}%`,
           percentage: pct,
           reason: formData.tuitionDiscountReason || `Desconto de ${pct}% na anuidade`
@@ -537,17 +542,18 @@ export default function ReenrollmentModule() {
 
   // Identificar qual ID de opção de desconto corresponde ao desconto atual do formulário
   const getCurrentDiscountOptionValue = () => {
-    const pct = formData.tuitionDiscountPercentage !== undefined && formData.tuitionDiscountPercentage !== null
-      ? Math.round(formData.tuitionDiscountPercentage > 1 ? formData.tuitionDiscountPercentage : formData.tuitionDiscountPercentage * 100)
+    const rawVal = formData.tuitionDiscountPercentage;
+    const pct = rawVal !== undefined && rawVal !== null
+      ? (Number(rawVal) > 1 ? Number(rawVal) : Math.round(Number(rawVal) * 10000) / 100)
       : null;
 
     if (pct === 0 || (pct === null && (!formData.tuitionDiscountType || formData.tuitionDiscountType.toLowerCase() === 'sem desconto'))) {
       return 'sem_desconto';
     }
 
-    // Prioridade 1: Encontrar pelo percentual exato
+    // Prioridade 1: Encontrar pelo percentual exato (suportando decimais como 13.85%, 9.23%, etc.)
     if (pct !== null && pct > 0) {
-      const foundByPct = discountOptions.find(o => o.percentage === pct);
+      const foundByPct = discountOptions.find(o => Math.abs((o.percentage || 0) - pct) < 0.01);
       if (foundByPct) return foundByPct.id;
     }
 
@@ -703,7 +709,19 @@ export default function ReenrollmentModule() {
     const primaryGuardian = (student.guardians && student.guardians[0]) || {};
 
     const rm = student.rmNumber || student.cocCode || existingEnrollment.rmNumber || '2560';
-    const nextGrade = getNextGrade(student.currentGrade || existingEnrollment.currentGrade);
+    // Determinar a série atual de 2026 (vigente do estudante no ano corrente)
+    const currentStudentGrade = student.serie_ano_atual || (student.newGrade2027 ? student.currentGrade : (existingEnrollment.currentGrade || student.currentGrade || '7º Ano EF'));
+
+    // Determinar a nova série de rematrícula de 2027 estritamente a partir da base oficial (NUNCA avança sozinha se já definida!)
+    let explicitNewGrade = student.nova_serie_ano_2027 || student.newGrade2027 || existingEnrollment.newGrade;
+    if (!explicitNewGrade) {
+      explicitNewGrade = getNextGrade(currentStudentGrade);
+    }
+    const nextGrade = explicitNewGrade;
+
+    // Determinar o nível de ensino de rematrícula baseado na nova série (ex: 9º ano EF -> 1ª EM vira Ensino Médio)
+    const isNextGradeMedio = nextGrade.includes('EM') || nextGrade.includes('Série') || nextGrade.includes('Serie') || nextGrade.includes('Médio');
+    const targetCourseLevel = isNextGradeMedio ? 'Ensino Médio' : 'Ensino Fundamental';
 
     // Separar Cidade e UF do Estudante
     const studentBirthLoc = parseCityStateString(
@@ -716,43 +734,50 @@ export default function ReenrollmentModule() {
     const materialStd = getStandardMaterialForGrade(nextGrade, campaignConfig);
 
     // Detecção segura e completa de Bolsa / Desconto 100%
+    const enrFin = existingEnrollment.financial || {};
     const rawDiscountPct = existingEnrollment.tuitionDiscountPercentage !== undefined 
       ? existingEnrollment.tuitionDiscountPercentage 
-      : (student.percentual_desconto_2027 !== undefined ? student.percentual_desconto_2027 : 0);
+      : (enrFin.tuitionDiscountPercentage !== undefined 
+        ? enrFin.tuitionDiscountPercentage 
+        : (student.percentual_desconto_2027 !== undefined ? student.percentual_desconto_2027 : 0));
     const normalizedDiscountPct = normalizeDiscountPct(rawDiscountPct);
 
     const discountReasonText = String(
-      existingEnrollment.tuitionDiscountReason || 
       student.observacao_desconto_2027 || 
-      existingEnrollment.tuitionDiscountType || 
+      existingEnrollment.tuitionDiscountReason || 
+      enrFin.tuitionDiscountReason ||
       student.tipo_desconto_2027 || 
+      existingEnrollment.tuitionDiscountType || 
+      enrFin.tuitionDiscountDescription ||
       student.desconto_2026_detalhes || 
       ''
     );
     const has100Keyword = /100%|bolsa\s*100|permuta\s*100|integral\s*100/i.test(discountReasonText);
-    const has0Amount = (existingEnrollment.tuitionDiscountTotal === 0 && existingEnrollment.tuitionDiscountTotal !== undefined && existingEnrollment.tuitionDiscountTotal !== null) ||
-                       (student.valor_total_anuidade_2027 === 0 && student.valor_total_anuidade_2027 !== undefined && student.valor_total_anuidade_2027 !== null);
+    const has0Amount = (student.valor_total_anuidade_2027 === 0 && student.valor_total_anuidade_2027 !== undefined && student.valor_total_anuidade_2027 !== null) ||
+                       (existingEnrollment.tuitionDiscountTotal === 0 && existingEnrollment.tuitionDiscountTotal !== undefined && existingEnrollment.tuitionDiscountTotal !== null) ||
+                       (enrFin.tuitionGrossTotal === 0 && enrFin.tuitionGrossTotal !== undefined && enrFin.tuitionGrossTotal !== null);
 
-    const is100Discount = normalizedDiscountPct === 100 || has100Keyword || (has0Amount && (normalizedDiscountPct > 0 || has100Keyword));
+    const is100Discount = normalizedDiscountPct === 100 || (has100Keyword && (has0Amount || normalizedDiscountPct >= 99));
 
     let grossVal = '0,00';
     if (is100Discount) {
       grossVal = '0,00';
-    } else if (normalizedDiscountPct > 0) {
-      // Prioridade máxima: o percentual de desconto ativo define o valor real de contrato
-      grossVal = formatNumberToBRL(Math.max(0, nominalNum * (1 - normalizedDiscountPct / 100)));
-    } else if (existingEnrollment.tuitionDiscountTotal !== undefined && existingEnrollment.tuitionDiscountTotal !== null && parseBRLToNumber(existingEnrollment.tuitionDiscountTotal) > 1000) {
-      grossVal = formatNumberToBRL(existingEnrollment.tuitionDiscountTotal);
     } else if (student.valor_total_anuidade_2027 !== undefined && student.valor_total_anuidade_2027 !== null && parseBRLToNumber(student.valor_total_anuidade_2027) > 1000) {
       grossVal = formatNumberToBRL(student.valor_total_anuidade_2027);
     } else if (existingEnrollment.tuitionGrossTotal !== undefined && existingEnrollment.tuitionGrossTotal !== null && parseBRLToNumber(existingEnrollment.tuitionGrossTotal) > 1000) {
       grossVal = formatNumberToBRL(existingEnrollment.tuitionGrossTotal);
+    } else if (enrFin.tuitionGrossTotal !== undefined && enrFin.tuitionGrossTotal !== null && parseBRLToNumber(enrFin.tuitionGrossTotal) > 1000) {
+      grossVal = formatNumberToBRL(enrFin.tuitionGrossTotal);
+    } else if (existingEnrollment.tuitionDiscountTotal !== undefined && existingEnrollment.tuitionDiscountTotal !== null && parseBRLToNumber(existingEnrollment.tuitionDiscountTotal) > 1000) {
+      grossVal = formatNumberToBRL(existingEnrollment.tuitionDiscountTotal);
+    } else if (normalizedDiscountPct > 0) {
+      grossVal = formatNumberToBRL(Math.max(0, nominalNum * (1 - normalizedDiscountPct / 100)));
     } else {
       grossVal = nominalVal;
     }
 
     // Padrão do Colégio Rodin: 13 parcelas mensais por padrão
-    const rawChoice = existingEnrollment.paymentPlanChoice || existingEnrollment.installmentsCount || '13';
+    const rawChoice = existingEnrollment.paymentPlanChoice || existingEnrollment.installmentsCount || student.plano_pagamento_anuidade_2027 || '13';
     const initialPlanChoice = (rawChoice && String(rawChoice) !== '12')
       ? (String(rawChoice) === '1' || String(rawChoice) === '1_avista_5off' ? '1_avista_5off' : String(rawChoice))
       : '13';
@@ -770,8 +795,17 @@ export default function ReenrollmentModule() {
       countNum,
       detectedLePerini
     );
-    const defaultFirstParcelValue = formatNumberToBRL(calcedFirst);
-    const defaultRegParcelValue = formatNumberToBRL(calcedReg);
+
+    const officialFirst = student.valor_1a_parcela_2027 || existingEnrollment.firstInstallmentValue || enrFin.firstInstallmentValue;
+    const officialReg = student.valor_demais_parcelas_2027 || existingEnrollment.regularInstallmentValue || enrFin.regularInstallmentValue;
+
+    const defaultFirstParcelValue = (officialFirst && parseBRLToNumber(officialFirst) > 50)
+      ? formatNumberToBRL(officialFirst)
+      : formatNumberToBRL(calcedFirst);
+
+    const defaultRegParcelValue = (officialReg && parseBRLToNumber(officialReg) > 50)
+      ? formatNumberToBRL(officialReg)
+      : formatNumberToBRL(calcedReg);
 
     const firstVal = is100Discount ? '0,00' : (
       (existingEnrollment.firstInstallmentValue !== undefined && existingEnrollment.firstInstallmentValue !== null && parseBRLToNumber(existingEnrollment.firstInstallmentValue) > 50)
@@ -814,7 +848,7 @@ export default function ReenrollmentModule() {
       // Matrícula & Acadêmico
       rmNumber: rm,
       academicYear: targetYear,
-      courseLevel: (student.courseLevel || existingEnrollment.courseLevel || 'Ensino Fundamental').replace('Ensino Fundamental II', 'Ensino Fundamental'),
+      courseLevel: targetCourseLevel,
       currentGrade: nextGrade,
       schoolShift: student.schoolShift || existingEnrollment.schoolShift || 'Manhã',
       classGroup: student.classGroup || existingEnrollment.classGroup || 'A',
@@ -867,9 +901,9 @@ export default function ReenrollmentModule() {
       tuitionNominalTotal: nominalVal,
       tuitionGrossTotal: is100Discount ? '0,00' : grossVal,
       tuitionDiscountTotal: is100Discount ? '0,00' : grossVal,
-      tuitionDiscountType: existingEnrollment.tuitionDiscountType || student.tipo_desconto_2027 || (is100Discount ? 'Bolsa 100%' : (normalizedDiscountPct > 0 ? `${normalizedDiscountPct}%` : 'Sem desconto')),
-      tuitionDiscountPercentage: is100Discount ? 1.0 : (normalizedDiscountPct > 0 ? normalizedDiscountPct / 100 : (existingEnrollment.tuitionDiscountPercentage !== undefined ? existingEnrollment.tuitionDiscountPercentage : 0)),
-      tuitionDiscountReason: existingEnrollment.tuitionDiscountReason || student.observacao_desconto_2027 || student.desconto_2026_detalhes || (is100Discount ? 'Bolsa Integral 100% na anuidade escolar' : 'Anuidade integral conforme tabela padrão Colégio Rodin 2027'),
+      tuitionDiscountType: student.tipo_desconto_2027 || existingEnrollment.tuitionDiscountType || enrFin.tuitionDiscountDescription || (is100Discount ? 'Bolsa 100%' : (normalizedDiscountPct > 0 ? `${normalizedDiscountPct}%` : 'Sem desconto')),
+      tuitionDiscountPercentage: is100Discount ? 1.0 : (normalizedDiscountPct > 0 ? normalizedDiscountPct / 100 : 0),
+      tuitionDiscountReason: student.observacao_desconto_2027 || existingEnrollment.tuitionDiscountReason || enrFin.tuitionDiscountReason || student.desconto_2026_detalhes || (is100Discount ? 'Bolsa Integral 100% na anuidade escolar' : 'Anuidade integral conforme tabela padrão Colégio Rodin 2027'),
       tuitionPreviousYear2026: existingEnrollment.tuitionPreviousYear2026 ? formatNumberToBRL(existingEnrollment.tuitionPreviousYear2026) : null,
       paymentPlanPreviousYear2026: existingEnrollment.paymentPlanPreviousYear2026 || null,
       paymentPlanChoice: initialPlanChoice,
@@ -1194,39 +1228,50 @@ export default function ReenrollmentModule() {
   };
 
   // Helper para montar objeto do estudante atualizado
-  const buildUpdatedStudentObject = () => ({
-    ...(selectedStudent || {}),
-    id: selectedStudent ? selectedStudent.id : `std-${formData.rmNumber}`,
-    rmNumber: formData.rmNumber,
-    cocCode: formData.rmNumber,
-    name: formData.studentName,
-    studentName: formData.studentName,
-    isLePerini: Boolean(formData.isLePerini),
-    gender: formData.studentGender,
-    studentGender: formData.studentGender,
-    birthDate: toInputDateFormat(formData.studentBirthDate),
-    studentBirthDate: toInputDateFormat(formData.studentBirthDate),
-    rg: formData.studentRg,
-    studentRg: formData.studentRg,
-    rgIssuer: formData.studentRgIssuer,
-    studentRgIssuer: formData.studentRgIssuer,
-    rgIssueDate: toInputDateFormat(formData.studentRgIssueDate),
-    studentRgIssueDate: toInputDateFormat(formData.studentRgIssueDate),
-    cpf: formData.studentCpf,
-    studentCpf: formData.studentCpf,
-    phone: formData.studentPhone,
-    studentPhone: formData.studentPhone,
-    studentLandline: formData.studentLandline,
-    birthCity: cleanCityName(formData.studentBirthCity),
-    studentBirthCity: cleanCityName(formData.studentBirthCity),
-    studentBirthState: formData.studentBirthState,
-    nationality: formData.studentNationality,
-    studentNationality: formData.studentNationality,
-    currentGrade: formData.currentGrade,
-    courseLevel: formData.courseLevel,
-    schoolShift: formData.schoolShift,
-    classGroup: formData.classGroup,
-    guardians: [
+  // REGRA CRÍTICA: A Série Atual (2026) do estudante NUNCA deve ser sobrescrita pela série de rematrícula (2027) ao editar dados!
+  const buildUpdatedStudentObject = () => {
+    const originalCurrentGrade = selectedStudent?.serie_ano_atual || selectedStudent?.currentGrade || '6º Ano EF';
+    const isOriginalMedio = originalCurrentGrade.includes('EM') || originalCurrentGrade.includes('Série');
+    const originalCourseLevel = isOriginalMedio ? 'Ensino Médio' : 'Ensino Fundamental';
+
+    return {
+      ...(selectedStudent || {}),
+      id: selectedStudent ? selectedStudent.id : `std-${formData.rmNumber}`,
+      rmNumber: formData.rmNumber,
+      cocCode: formData.rmNumber,
+      name: formData.studentName,
+      studentName: formData.studentName,
+      isLePerini: Boolean(formData.isLePerini),
+      gender: formData.studentGender,
+      studentGender: formData.studentGender,
+      birthDate: toInputDateFormat(formData.studentBirthDate),
+      studentBirthDate: toInputDateFormat(formData.studentBirthDate),
+      rg: formData.studentRg,
+      studentRg: formData.studentRg,
+      rgIssuer: formData.studentRgIssuer,
+      studentRgIssuer: formData.studentRgIssuer,
+      rgIssueDate: toInputDateFormat(formData.studentRgIssueDate),
+      studentRgIssueDate: toInputDateFormat(formData.studentRgIssueDate),
+      cpf: formData.studentCpf,
+      studentCpf: formData.studentCpf,
+      phone: formData.studentPhone,
+      studentPhone: formData.studentPhone,
+      studentLandline: formData.studentLandline,
+      birthCity: cleanCityName(formData.studentBirthCity),
+      studentBirthCity: cleanCityName(formData.studentBirthCity),
+      studentBirthState: formData.studentBirthState,
+      nationality: formData.studentNationality,
+      studentNationality: formData.studentNationality,
+      // A série atual do ano letivo vigente permanece intacta
+      currentGrade: originalCurrentGrade,
+      serie_ano_atual: originalCurrentGrade,
+      courseLevel: originalCourseLevel,
+      // A série proposta para 2027 fica nos campos de rematrícula
+      nova_serie_ano_2027: formData.currentGrade,
+      newGrade2027: formData.currentGrade,
+      schoolShift: formData.schoolShift,
+      classGroup: formData.classGroup,
+      guardians: [
       {
         ...(selectedStudent?.guardians?.[0] || {}),
         name: formData.guardianName,
@@ -1273,7 +1318,8 @@ export default function ReenrollmentModule() {
         isPedagogical: true
       }
     ]
-  });
+  };
+};
 
   // Montar objeto padronizado para PDF e Armazenamento (suporte aos dois contratos independentes)
   const buildEnrollmentDataObject = (customSchoolStatus, customMaterialStatus) => {
@@ -1301,6 +1347,8 @@ export default function ReenrollmentModule() {
       ? 'reenrolled'
       : (schoolStatus === 'signed' || materialStatus === 'signed' ? 'partial_signed' : 'pending_reenrollment');
 
+    const originalCurrentGrade = selectedStudent?.serie_ano_atual || selectedStudent?.currentGrade || existingEnrollment?.currentGrade || '7º Ano EF';
+
     return {
       id: `enr-${formData.academicYear}-${formData.rmNumber}`,
       studentId: selectedStudent ? selectedStudent.id : `std-${formData.rmNumber}`,
@@ -1309,7 +1357,8 @@ export default function ReenrollmentModule() {
       enrollmentCode: `RM ${formData.rmNumber}`,
       academicYear: parseInt(formData.academicYear),
       courseLevel: formData.courseLevel,
-      currentGrade: formData.currentGrade,
+      currentGrade: originalCurrentGrade, // Série Atual 2026 do aluno (preservada intacta)
+      newGrade: formData.currentGrade,     // Nova Série de Rematrícula 2027
       schoolShift: formData.schoolShift,
       classGroup: formData.classGroup,
       status: consolidatedStatus,
@@ -1716,31 +1765,7 @@ export default function ReenrollmentModule() {
     enrollmentData.isPresencial = false;
     delete enrollmentData.signatureSha256;
 
-    const updatedStudent = {
-      ...(selectedStudent || {}),
-      id: selectedStudent ? selectedStudent.id : `std-${formData.rmNumber}`,
-      rmNumber: formData.rmNumber,
-      cocCode: formData.rmNumber,
-      name: formData.studentName,
-      studentName: formData.studentName,
-      studentBirthCity: cleanCityName(formData.studentBirthCity),
-      studentBirthState: formData.studentBirthState,
-      currentGrade: formData.currentGrade,
-      courseLevel: formData.courseLevel,
-      schoolShift: formData.schoolShift,
-      guardians: [
-        {
-          guardianName: formData.guardianName,
-          guardianRelation: formData.guardianRelation,
-          guardianCpf: formData.guardianCpf,
-          guardianRg: formData.guardianRg,
-          guardianEmail: formData.guardianEmail,
-          guardianPhone: formData.guardianPhone,
-          guardianAddressState: formData.guardianAddressState,
-          guardianAddressCity: formData.guardianAddressCity
-        }
-      ]
-    };
+    const updatedStudent = buildUpdatedStudentObject();
 
     saveReenrollment(enrollmentData, updatedStudent);
 
@@ -1820,7 +1845,7 @@ export default function ReenrollmentModule() {
                 {formData.studentName || 'Ficha de Rematrícula'}
               </h1>
               <p className="text-[12px] text-[#94A3B8]">
-                Série Atual: <strong className="text-white">{selectedStudent.currentGrade}</strong> → Nova Série 2027: <strong className="text-[#F45206]">{formData.currentGrade}</strong> • RM: <strong className="text-white">{formData.rmNumber}</strong>
+                Série Atual: <strong className="text-white">{selectedStudent.serie_ano_atual || selectedStudent.currentGrade}</strong> → Nova Série 2027: <strong className="text-[#F45206]">{formData.currentGrade}</strong> • RM: <strong className="text-white">{formData.rmNumber}</strong>
               </p>
             </div>
           </div>
@@ -1946,14 +1971,14 @@ export default function ReenrollmentModule() {
                   <div className="form-group">
                     <label className="form-label">Nível de Ensino / Curso:</label>
                     <select
-                      value={formData.courseLevel === 'Ensino Fundamental II' ? 'Ensino Fundamental' : formData.courseLevel}
+                      value={formData.courseLevel === 'Ensino Fundamental II' ? 'Ensino Fundamental' : (formData.courseLevel || 'Ensino Fundamental')}
                       onChange={(e) => {
                         const newLevel = e.target.value;
                         const isMedio = newLevel === 'Ensino Médio';
-                        const currentIsMedio = formData.currentGrade.includes('EM') || formData.currentGrade.includes('Série');
+                        const currentIsMedio = formData.currentGrade && (formData.currentGrade.includes('EM') || formData.currentGrade.includes('Série'));
                         let nextGrade = formData.currentGrade;
                         if (isMedio && !currentIsMedio) nextGrade = '1ª Série EM';
-                        if (!isMedio && currentIsMedio) nextGrade = '6º Ano EF';
+                        if (!isMedio && currentIsMedio) nextGrade = '7º Ano EF';
 
                         const nominal = getNominalTuitionForGrade(nextGrade);
                         const mat = getStandardMaterialForGrade(nextGrade);
@@ -1993,6 +2018,9 @@ export default function ReenrollmentModule() {
                       value={formData.currentGrade}
                       onChange={(e) => {
                         const nextGrade = e.target.value;
+                        const isMedio = nextGrade.includes('EM') || nextGrade.includes('Série');
+                        const updatedLevel = isMedio ? 'Ensino Médio' : 'Ensino Fundamental';
+
                         const nominal = getNominalTuitionForGrade(nextGrade);
                         const mat = getStandardMaterialForGrade(nextGrade);
                         const countInst = parseInt(formData.installmentsCount) || 13;
@@ -2010,6 +2038,7 @@ export default function ReenrollmentModule() {
 
                         setFormData({ 
                           ...formData, 
+                          courseLevel: updatedLevel,
                           currentGrade: nextGrade,
                           tuitionNominalTotal: nominal,
                           tuitionGrossTotal: grossVal,
@@ -2032,7 +2061,6 @@ export default function ReenrollmentModule() {
                         </>
                       ) : (
                         <>
-                          <option value="6º Ano EF">6º Ano EF</option>
                           <option value="7º Ano EF">7º Ano EF</option>
                           <option value="8º Ano EF">8º Ano EF</option>
                           <option value="9º Ano EF">9º Ano EF</option>

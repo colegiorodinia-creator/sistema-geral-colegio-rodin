@@ -25,6 +25,7 @@ build/
 
 # Large binaries, raw photos and archives
 PDFs_Rematricula_2027/
+PDFs_Rematricula_2027_V2/
 public/Turmas/
 Turmas/
 *.zip

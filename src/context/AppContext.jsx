@@ -567,8 +567,8 @@ export function AppProvider({ children }) {
   const [activeTab, setActiveTab] = useState('rematricula');
   const [classes, setClasses] = useState(ALL_CLASSES_2027 && ALL_CLASSES_2027.length > 0 ? ALL_CLASSES_2027 : INITIAL_CLASSES);
 
-  // Cache Buster para garantir tagueamento Le Perini (DLP) exato da planilha oficial (2027)
-  const DB_VERSION = 'rodin_2027_v12_exact_le_perini_dlp';
+  // Cache Buster para garantir percentuais e valores oficiais rigorosamente fiéis à planilha de 2027
+  const DB_VERSION = 'rodin_2027_v20_exact_sheet_discount_and_values';
   try {
     if (typeof window !== 'undefined' && localStorage.getItem('rodin_db_version') !== DB_VERSION) {
       localStorage.removeItem('rodin_students');
@@ -576,6 +576,7 @@ export function AppProvider({ children }) {
       localStorage.removeItem('rodin_campaign_config');
       localStorage.removeItem('rodin_signing_enrollment');
       localStorage.removeItem('rodin_pending_reenrollment_search');
+      localStorage.removeItem('rodin_discount_options_v4');
       localStorage.setItem('rodin_db_version', DB_VERSION);
     }
   } catch (e) {}
@@ -588,8 +589,18 @@ export function AppProvider({ children }) {
         if (Array.isArray(parsed) && parsed.length > 50) {
           return parsed.map(s => {
             const enr = (ALL_ENROLLMENTS_2027 || []).find(e => e.rmNumber === s.rmNumber || e.cocCode === s.cocCode);
+            const officialStd = (ALL_STUDENTS_2027 || []).find(os => os.rmNumber === s.rmNumber || os.cocCode === s.cocCode);
             return {
               ...s,
+              ...(officialStd || {}),
+              ...s,
+              percentual_desconto_2027: officialStd?.percentual_desconto_2027 !== undefined ? officialStd.percentual_desconto_2027 : s.percentual_desconto_2027,
+              valor_nominal_anuidade_2027: officialStd?.valor_nominal_anuidade_2027 !== undefined ? officialStd.valor_nominal_anuidade_2027 : s.valor_nominal_anuidade_2027,
+              valor_total_anuidade_2027: officialStd?.valor_total_anuidade_2027 !== undefined ? officialStd.valor_total_anuidade_2027 : s.valor_total_anuidade_2027,
+              valor_1a_parcela_2027: officialStd?.valor_1a_parcela_2027 !== undefined ? officialStd.valor_1a_parcela_2027 : s.valor_1a_parcela_2027,
+              valor_demais_parcelas_2027: officialStd?.valor_demais_parcelas_2027 !== undefined ? officialStd.valor_demais_parcelas_2027 : s.valor_demais_parcelas_2027,
+              tipo_desconto_2027: officialStd?.tipo_desconto_2027 || s.tipo_desconto_2027,
+              observacao_desconto_2027: officialStd?.observacao_desconto_2027 || s.observacao_desconto_2027,
               isLePerini: typeof s.isLePerini === 'boolean' ? s.isLePerini : isLePeriniStudent(s, enr)
             };
           });
@@ -614,8 +625,21 @@ export function AppProvider({ children }) {
         if (Array.isArray(parsed) && parsed.length > 50) {
           return parsed.map(e => {
             const std = (ALL_STUDENTS_2027 || []).find(s => s.rmNumber === e.rmNumber || s.cocCode === e.cocCode);
+            const officialEnr = (ALL_ENROLLMENTS_2027 || []).find(oe => oe.rmNumber === e.rmNumber || oe.cocCode === e.cocCode);
             return {
               ...e,
+              ...(officialEnr || {}),
+              ...e,
+              tuitionDiscountPercentage: officialEnr?.tuitionDiscountPercentage !== undefined ? officialEnr.tuitionDiscountPercentage : e.tuitionDiscountPercentage,
+              tuitionGrossTotal: officialEnr?.tuitionGrossTotal !== undefined ? officialEnr.tuitionGrossTotal : e.tuitionGrossTotal,
+              tuitionDiscountTotal: officialEnr?.tuitionDiscountTotal !== undefined ? officialEnr.tuitionDiscountTotal : e.tuitionDiscountTotal,
+              tuitionAnnualNominal: officialEnr?.tuitionAnnualNominal !== undefined ? officialEnr.tuitionAnnualNominal : e.tuitionAnnualNominal,
+              tuitionNominalTotal: officialEnr?.tuitionNominalTotal !== undefined ? officialEnr.tuitionNominalTotal : e.tuitionNominalTotal,
+              firstInstallmentValue: officialEnr?.firstInstallmentValue !== undefined ? officialEnr.firstInstallmentValue : e.firstInstallmentValue,
+              regularInstallmentValue: officialEnr?.regularInstallmentValue !== undefined ? officialEnr.regularInstallmentValue : e.regularInstallmentValue,
+              tuitionDiscountDescription: officialEnr?.tuitionDiscountDescription || e.tuitionDiscountDescription,
+              tuitionDiscountType: officialEnr?.tuitionDiscountType || e.tuitionDiscountType,
+              tuitionDiscountReason: officialEnr?.tuitionDiscountReason || e.tuitionDiscountReason,
               isLePerini: typeof e.isLePerini === 'boolean' ? e.isLePerini : (typeof std?.isLePerini === 'boolean' ? std.isLePerini : isLePeriniStudent(std, e)),
               schoolContractStatus: e.schoolContractStatus || (e.status === 'active' || e.status === 'reenrolled' ? 'signed' : 'pending'),
               materialContractStatus: e.materialContractStatus || (e.status === 'active' || e.status === 'reenrolled' ? 'signed' : 'pending'),

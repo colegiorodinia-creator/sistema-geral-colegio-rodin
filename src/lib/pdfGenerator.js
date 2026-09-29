@@ -40,6 +40,51 @@ export function parseMoneyVal(v) {
 }
 
 /**
+ * Cria campo de texto AcroForm com dimensões confortáveis, DA explícito (/F1 ou /F2)
+ * e registra /DR (Default Resources) na raiz do AcroForm,
+ * garantindo que a fonte NUNCA diminua quando o usuário editar qualquer informação.
+ */
+function createStableAcroTextField(doc, { rect, value, fieldName, fontSize = 9.5, bold = false, multiline = false }) {
+  const { TextField } = jsPDF.AcroForm;
+  const field = new TextField();
+  field.Rect = rect;
+  field.value = (value && value !== '—') ? String(value).trim() : '';
+  field.fieldName = fieldName;
+  field.fontSize = fontSize;
+  field.maxFontSize = fontSize;
+  field.multiline = Boolean(multiline);
+  field.showBorder = false;
+
+  // No jsPDF, a fonte Helvetica normal é mapeada como /F1 e Helvetica-Bold como /F2 no dicionário de recursos (/Resources 2 0 R)
+  const fontTag = bold ? '/F2' : '/F1';
+  const oldGet = field.getKeyValueListForStream.bind(field);
+  field.getKeyValueListForStream = function() {
+    const list = oldGet();
+    list.push({ key: 'DA', value: `(${fontTag} ${Number(fontSize).toFixed(2)} Tf 0 g)` });
+    return list;
+  };
+  doc.addField(field);
+
+  // Injetar /DR e /DA na raiz do AcroForm para que visualizadores (Adobe Acrobat, Chrome, Edge)
+  // encontrem a fonte /F1 e /F2 no dicionário de recursos e preservem o tamanho exato da fonte ao digitar.
+  if (doc?.internal?.acroformPlugin?.acroFormDictionaryRoot) {
+    const root = doc.internal.acroformPlugin.acroFormDictionaryRoot;
+    if (!root.__drConfigured) {
+      root.__drConfigured = true;
+      const oldRootGet = root.getKeyValueListForStream.bind(root);
+      root.getKeyValueListForStream = function() {
+        const rList = oldRootGet();
+        rList.push({ key: 'DR', value: '2 0 R' });
+        rList.push({ key: 'DA', value: '(/F1 9.50 Tf 0 g)' });
+        return rList;
+      };
+    }
+  }
+
+  return field;
+}
+
+/**
  * Constrói a instância jsPDF com o REQUERIMENTO DE MATRÍCULA oficial de 2 páginas.
  * Modelo Oficial Idêntico - Educação Básica (Balder Educacional LTDA)
  */
@@ -50,7 +95,7 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
   });
 
   const isInteractive = Boolean(docOptions.interactive);
-  const { TextField } = jsPDF.AcroForm;
+  const { TextField, CheckBox } = jsPDF.AcroForm;
   let fieldCounter = 0;
 
   // Consolidação de dados garantindo prioridade para o preenchimento real do usuário
@@ -99,13 +144,14 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
 
     if (isInteractive) {
       fieldCounter++;
-      const field = new TextField();
-      field.Rect = [x + 0.5, y - 3.9, w - 1.0, 3.7];
-      field.value = valStr;
-      field.fieldName = options.fieldName || `campo_${fieldCounter}`;
-      field.fontSize = options.valueSize || 8.8;
-      field.showBorder = false;
-      doc.addField(field);
+      const fSize = options.valueSize || 9.5;
+      createStableAcroTextField(doc, {
+        rect: [x + 0.5, y - 3.8, w - 1.0, 4.0],
+        value: valStr,
+        fieldName: options.fieldName || `campo_${fieldCounter}`,
+        fontSize: fSize,
+        bold: Boolean(options.boldValue)
+      });
     } else if (valStr) {
       // Valor preenchido sobre a linha de base
       doc.setFont('helvetica', options.boldValue ? 'bold' : 'normal');
@@ -138,11 +184,25 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.25);
     doc.rect(x, y - boxW, boxW, boxW);
-    if (isChecked) {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(fontSize);
-      doc.setTextColor(0, 0, 0);
-      doc.text('X', x + (boxW * 0.22), y - (boxW * 0.18));
+
+    if (isInteractive) {
+      fieldCounter++;
+      const cb = new CheckBox();
+      cb.fieldName = options.fieldName || `checkbox_${fieldCounter}`;
+      cb.Rect = [x, y - boxW, boxW, boxW];
+      cb.value = isChecked ? 'On' : 'Off';
+      cb.appearanceState = isChecked ? 'On' : 'Off';
+      cb.fontSize = 5.5;
+      cb.maxFontSize = 5.5;
+      cb.showBorder = false;
+      doc.addField(cb);
+    } else {
+      if (isChecked) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(fontSize);
+        doc.setTextColor(0, 0, 0);
+        doc.text('X', x + (boxW * 0.22), y - (boxW * 0.18));
+      }
     }
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(fontSize);
@@ -190,13 +250,13 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
   doc.setFontSize(8.5);
   doc.text('nº:', 169.5, 26.0);
   if (isInteractive) {
-    const fRm = new TextField();
-    fRm.Rect = [175.5, 22.8, 23.5, 4.2];
-    fRm.value = String(rm);
-    fRm.fieldName = 'rm_numero_topo';
-    fRm.fontSize = 8.5;
-    fRm.showBorder = false;
-    doc.addField(fRm);
+    createStableAcroTextField(doc, {
+      rect: [175.0, 22.8, 24.0, 4.2],
+      value: String(rm),
+      fieldName: 'rm_numero_topo',
+      fontSize: 9.0,
+      bold: true
+    });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9.0);
@@ -246,9 +306,9 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
   doc.setLineHeightFactor(1.15);
 
   // 2. DADOS PESSOAIS DO ESTUDANTE
-  const sGender = data.studentGender || data.gender || '';
-  const isStudentMasc = sGender === 'Masc.' || sGender === 'Masculino';
-  const isStudentFem = sGender === 'Fem.' || sGender === 'Feminino';
+  const sGender = String(data.studentGender || data.gender || '').trim();
+  const isStudentMasc = sGender.toLowerCase().startsWith('m');
+  const isStudentFem = sGender.toLowerCase().startsWith('f');
 
   drawSectionHeader(187.0, 'DADOS PESSOAIS DO ESTUDANTE');
 
@@ -257,8 +317,8 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.text('Sexo', 151.0, 200.0 - 4.2);
-  drawCheckbox(151.2, 200.0, 'Masc.', isStudentMasc, { boxSize: 3.2, fontSize: 7.6, labelOffset: 4.0 });
-  drawCheckbox(164.0, 200.0, 'Fem.', isStudentFem, { boxSize: 3.2, fontSize: 7.6, labelOffset: 4.0 });
+  drawCheckbox(151.2, 200.0, 'Masc.', isStudentMasc, { boxSize: 3.2, fontSize: 7.6, labelOffset: 4.0, fieldName: 'estudante_sexo_masculino' });
+  drawCheckbox(164.0, 200.0, 'Fem.', isStudentFem, { boxSize: 3.2, fontSize: 7.6, labelOffset: 4.0, fieldName: 'estudante_sexo_feminino' });
   drawTickField(177.3, 200.0, 22.8, 'Data de Nasc.:', formatDisplayDate(data.studentBirthDate || data.birthDate));
 
   // Linha 2 (y = 211.3)
@@ -313,7 +373,8 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
   const has0DiscountAmount = (parsedDiscountTotal === 0 && data.tuitionDiscountTotal !== undefined && data.tuitionDiscountTotal !== null) ||
                              (parsedStudentTotal === 0 && data.valor_total_anuidade_2027 !== undefined && data.valor_total_anuidade_2027 !== null);
 
-  const is100Discount = normalizedPct === 100 || has100Keyword || (has0DiscountAmount && (normalizedPct > 0 || has100Keyword));
+  // Bolsa 100% apenas se for realmente 100% (evita que desconto parcial com 0 na planilha vire 100%)
+  const is100Discount = normalizedPct === 100 || (has100Keyword && (has0DiscountAmount || normalizedPct >= 99));
 
   let grossNum = 0;
   let firstNum = 0;
@@ -326,16 +387,14 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
   } else {
     const grossTotal = parseMoneyVal(data.tuitionGrossTotal);
 
-    if (parsedDiscountTotal !== null && parsedDiscountTotal >= 0) {
+    if (parsedDiscountTotal !== null && parsedDiscountTotal > 0) {
       grossNum = parsedDiscountTotal;
-    } else if (parsedStudentTotal !== null && parsedStudentTotal >= 0 && normalizedPct > 0) {
+    } else if (parsedStudentTotal !== null && parsedStudentTotal > 0) {
       grossNum = parsedStudentTotal;
-    } else if (grossTotal !== null && grossTotal >= 0) {
-      if (normalizedPct > 0 && Math.abs(grossTotal - (gradeRates.tuitionNominalNum || 0)) < 1) {
-        grossNum = Math.max(0, gradeRates.tuitionNominalNum * (1 - normalizedPct / 100));
-      } else {
-        grossNum = grossTotal;
-      }
+    } else if (grossTotal !== null && grossTotal > 0) {
+      grossNum = grossTotal;
+    } else if (normalizedPct > 0) {
+      grossNum = Math.max(0, (gradeRates.tuitionNominalNum || 0) * (1 - normalizedPct / 100));
     } else {
       grossNum = gradeRates.tuitionNominalNum || gradeRates.tuitionAnnual || 0;
     }
@@ -343,13 +402,13 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
     const firstParsed = parseMoneyVal(data.firstInstallmentValue);
     const regParsed = parseMoneyVal(data.regularInstallmentValue);
 
-    if (firstParsed !== null) {
+    if (firstParsed !== null && firstParsed > 0) {
       firstNum = firstParsed;
     } else {
       firstNum = totalInstallments > 0 ? (grossNum / totalInstallments) : grossNum;
     }
 
-    if (regParsed !== null) {
+    if (regParsed !== null && regParsed > 0) {
       regNum = regParsed;
     } else {
       regNum = totalInstallments > 0 ? (grossNum / totalInstallments) : grossNum;
@@ -439,14 +498,13 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
   }
 
   if (isInteractive) {
-    const fObs = new TextField();
-    fObs.Rect = [138.0, 244.5, 61.5, 33.0];
-    fObs.value = notesContent || '';
-    fObs.fieldName = 'observacoes_anuidade';
-    fObs.fontSize = 7.5;
-    fObs.multiline = true;
-    fObs.showBorder = false;
-    doc.addField(fObs);
+    createStableAcroTextField(doc, {
+      rect: [138.0, 244.5, 61.5, 33.0],
+      value: notesContent || '',
+      fieldName: 'observacoes_anuidade',
+      fontSize: 8.0,
+      multiline: true
+    });
   } else if (notesContent) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
@@ -487,9 +545,9 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
   const gPhone = data.guardianPhone || '—';
   const gEmail = data.guardianEmail || '—';
   const gRelation = data.guardianRelation || 'Pai';
-  const gGender = data.guardianGender || '';
-  const isGuardianMasc = gGender === 'Masc.' || gGender === 'Masculino';
-  const isGuardianFem = gGender === 'Fem.' || gGender === 'Feminino';
+  const gGender = String(data.guardianGender || '').trim();
+  const isGuardianMasc = gGender.toLowerCase().startsWith('m');
+  const isGuardianFem = gGender.toLowerCase().startsWith('f');
 
   const fullStreet = data.guardianAddressStreet 
     ? `${data.guardianAddressStreet}${data.guardianAddressNumber ? ', nº ' + data.guardianAddressNumber : ''}${data.guardianAddressComplement ? ' (' + data.guardianAddressComplement + ')' : ''}`
@@ -508,8 +566,8 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.text('Sexo', 156.4, 21.0 - 4.2);
-  drawCheckbox(165.9, 21.0, 'Masc.', isGuardianMasc);
-  drawCheckbox(183.3, 21.0, 'Fem.', isGuardianFem);
+  drawCheckbox(165.9, 21.0, 'Masc.', isGuardianMasc, { boxSize: 3.2, fontSize: 7.6, labelOffset: 4.0, fieldName: 'responsavel_sexo_masculino' });
+  drawCheckbox(183.3, 21.0, 'Fem.', isGuardianFem, { boxSize: 3.2, fontSize: 7.6, labelOffset: 4.0, fieldName: 'responsavel_sexo_feminino' });
 
   // Linha 2 (y = 32.5)
   drawTickField(10.2, 32.5, 46.3, 'Data de Nasc.:', formatDisplayDate(data.guardianBirthDate));
@@ -683,19 +741,15 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
   doc.setLineWidth(0.35);
   doc.line(50.0, 269.5, 200.1, 269.5);
 
-  // Data preenchida automaticamente sobre a linha
+  // Campo editável vazio para digitação manual pela secretaria
   if (isInteractive) {
-    const fDate = new TextField();
-    fDate.Rect = [52.0, 265.5, 40.0, 3.8];
-    fDate.value = exportDateFormatted;
-    fDate.fieldName = 'data_uso_matricula';
-    fDate.fontSize = 9.0;
-    fDate.showBorder = false;
-    doc.addField(fDate);
-  } else {
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
-    doc.text(exportDateFormatted, 52.5, 268.5);
+    createStableAcroTextField(doc, {
+      rect: [51.5, 265.5, 45.0, 4.0],
+      value: '',
+      fieldName: 'data_uso_matricula',
+      fontSize: 9.5,
+      bold: true
+    });
   }
 
   // Se assinado online com hash, carimbo digital discreto acima da barra
@@ -860,13 +914,13 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   doc.text('Comprador (resp. fin.):', 10, yForm);
   underline(44, yForm + 0.5, 150);
   if (isInteractive) {
-    const f = new TextField();
-    f.Rect = [44.5, yForm - 4.2, 104.0, 4.4];
-    f.value = buyerName && buyerName !== '—' ? buyerName : '';
-    f.fieldName = 'comprador_nome';
-    f.fontSize = 8.5;
-    f.showBorder = false;
-    doc.addField(f);
+    createStableAcroTextField(doc, {
+      rect: [44.5, yForm - 3.8, 104.0, 4.0],
+      value: buyerName && buyerName !== '—' ? buyerName : '',
+      fieldName: 'comprador_nome',
+      fontSize: 9.0,
+      bold: true
+    });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text(`${doc.splitTextToSize(buyerName || '', 100)[0] || ''}`, 46, yForm - 0.5);
@@ -876,13 +930,13 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   doc.text('CPF:', 153, yForm);
   underline(162, yForm + 0.5, 201);
   if (isInteractive) {
-    const f = new TextField();
-    f.Rect = [162.5, yForm - 4.2, 38.0, 4.4];
-    f.value = buyerCpf && buyerCpf !== '—' ? buyerCpf : '';
-    f.fieldName = 'comprador_cpf';
-    f.fontSize = 8.5;
-    f.showBorder = false;
-    doc.addField(f);
+    createStableAcroTextField(doc, {
+      rect: [162.5, yForm - 3.8, 38.0, 4.0],
+      value: buyerCpf && buyerCpf !== '—' ? buyerCpf : '',
+      fieldName: 'comprador_cpf',
+      fontSize: 9.0,
+      bold: true
+    });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text(`${buyerCpf}`, 164, yForm - 0.5);
@@ -894,13 +948,13 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   doc.text('Nome do Estudante:', 10, yForm);
   underline(41, yForm + 0.5, 162);
   if (isInteractive) {
-    const f = new TextField();
-    f.Rect = [41.5, yForm - 4.2, 119.5, 4.4];
-    f.value = studentName.toUpperCase();
-    f.fieldName = 'estudante_nome';
-    f.fontSize = 8.5;
-    f.showBorder = false;
-    doc.addField(f);
+    createStableAcroTextField(doc, {
+      rect: [41.5, yForm - 3.8, 119.5, 4.0],
+      value: studentName.toUpperCase(),
+      fieldName: 'estudante_nome',
+      fontSize: 9.0,
+      bold: true
+    });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text(`${doc.splitTextToSize(studentName.toUpperCase(), 115)[0] || ''}`, 43, yForm - 0.5);
@@ -910,13 +964,13 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   doc.text('Ano letivo:', 165, yForm);
   underline(181, yForm + 0.5, 201);
   if (isInteractive) {
-    const f = new TextField();
-    f.Rect = [181.5, yForm - 4.2, 19.0, 4.4];
-    f.value = String(academicYear);
-    f.fieldName = 'ano_letivo';
-    f.fontSize = 8.5;
-    f.showBorder = false;
-    doc.addField(f);
+    createStableAcroTextField(doc, {
+      rect: [181.5, yForm - 3.8, 19.0, 4.0],
+      value: String(academicYear),
+      fieldName: 'ano_letivo',
+      fontSize: 9.0,
+      bold: true
+    });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text(`${academicYear}`, 184, yForm - 0.5);
@@ -932,13 +986,13 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   doc.text('Curso:', 10, yForm);
   underline(22, yForm + 0.5, 82);
   if (isInteractive) {
-    const f = new TextField();
-    f.Rect = [22.5, yForm - 4.2, 59.0, 4.4];
-    f.value = courseStr;
-    f.fieldName = 'curso';
-    f.fontSize = 8.5;
-    f.showBorder = false;
-    doc.addField(f);
+    createStableAcroTextField(doc, {
+      rect: [22.5, yForm - 3.8, 59.0, 4.0],
+      value: courseStr,
+      fieldName: 'curso',
+      fontSize: 9.0,
+      bold: true
+    });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text(`${courseStr}`, 24, yForm - 0.5);
@@ -948,13 +1002,13 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   doc.text('Série:', 85, yForm);
   underline(95, yForm + 0.5, 155);
   if (isInteractive) {
-    const f = new TextField();
-    f.Rect = [95.5, yForm - 4.2, 59.0, 4.4];
-    f.value = gradeStr;
-    f.fieldName = 'serie';
-    f.fontSize = 8.5;
-    f.showBorder = false;
-    doc.addField(f);
+    createStableAcroTextField(doc, {
+      rect: [95.5, yForm - 3.8, 59.0, 4.0],
+      value: gradeStr,
+      fieldName: 'serie',
+      fontSize: 9.0,
+      bold: true
+    });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text(`${gradeStr}`, 97, yForm - 0.5);
@@ -964,13 +1018,13 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   doc.text('Turno:', 158, yForm);
   underline(169, yForm + 0.5, 201);
   if (isInteractive) {
-    const f = new TextField();
-    f.Rect = [169.5, yForm - 4.2, 31.0, 4.4];
-    f.value = shiftStr;
-    f.fieldName = 'turno';
-    f.fontSize = 8.5;
-    f.showBorder = false;
-    doc.addField(f);
+    createStableAcroTextField(doc, {
+      rect: [169.5, yForm - 3.8, 31.0, 4.0],
+      value: shiftStr,
+      fieldName: 'turno',
+      fontSize: 9.0,
+      bold: true
+    });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text(`${shiftStr}`, 171, yForm - 0.5);
@@ -991,13 +1045,13 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   doc.text('Valor Total: (', 10, yForm);
   underline(29, yForm + 0.5, 76);
   if (isInteractive) {
-    const f = new TextField();
-    f.Rect = [29.5, yForm - 4.2, 46.0, 4.4];
-    f.value = `R$ ${matTotalStr}`;
-    f.fieldName = 'valor_total_material';
-    f.fontSize = 8.5;
-    f.showBorder = false;
-    doc.addField(f);
+    createStableAcroTextField(doc, {
+      rect: [29.5, yForm - 3.8, 46.0, 4.0],
+      value: `R$ ${matTotalStr}`,
+      fieldName: 'valor_total_material',
+      fontSize: 9.0,
+      bold: true
+    });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text(`R$ ${matTotalStr}`, 31, yForm - 0.5);
@@ -1009,13 +1063,13 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   doc.text('Forma de Pagamento:', 84, yForm);
   underline(118, yForm + 0.5, 201);
   if (isInteractive) {
-    const f = new TextField();
-    f.Rect = [118.5, yForm - 4.2, 82.0, 4.4];
-    f.value = paymentMethodStr;
-    f.fieldName = 'forma_pagamento';
-    f.fontSize = 8.5;
-    f.showBorder = false;
-    doc.addField(f);
+    createStableAcroTextField(doc, {
+      rect: [118.5, yForm - 3.8, 82.0, 4.0],
+      value: paymentMethodStr,
+      fieldName: 'forma_pagamento',
+      fontSize: 9.0,
+      bold: true
+    });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text(`${doc.splitTextToSize(paymentMethodStr, 80)[0] || ''}`, 120, yForm - 0.5);
@@ -1035,13 +1089,13 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   doc.text('Número de Parcelas:', 10, yForm);
   underline(43, yForm + 0.5, 108);
   if (isInteractive) {
-    const f = new TextField();
-    f.Rect = [43.5, yForm - 4.2, 64.0, 4.4];
-    f.value = `${matInstallments} parcelas (R$ ${matInstallmentVal})`;
-    f.fieldName = 'numero_parcelas';
-    f.fontSize = 8.5;
-    f.showBorder = false;
-    doc.addField(f);
+    createStableAcroTextField(doc, {
+      rect: [43.5, yForm - 3.8, 64.0, 4.0],
+      value: `${matInstallments} parcelas (R$ ${matInstallmentVal})`,
+      fieldName: 'numero_parcelas',
+      fontSize: 9.0,
+      bold: true
+    });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text(`${matInstallments} parcelas (R$ ${matInstallmentVal})`, 45, yForm - 0.5);
@@ -1051,13 +1105,13 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   doc.text('Venc. da 1ª Parcela:', 112, yForm);
   underline(148, yForm + 0.5, 201);
   if (isInteractive) {
-    const f = new TextField();
-    f.Rect = [148.5, yForm - 4.2, 52.0, 4.4];
-    f.value = startDueStr;
-    f.fieldName = 'vencimento_1a_parcela';
-    f.fontSize = 8.5;
-    f.showBorder = false;
-    doc.addField(f);
+    createStableAcroTextField(doc, {
+      rect: [148.5, yForm - 3.8, 52.0, 4.0],
+      value: startDueStr,
+      fieldName: 'vencimento_1a_parcela',
+      fontSize: 9.0,
+      bold: true
+    });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text(`${startDueStr}`, 150, yForm - 0.5);
@@ -1075,13 +1129,13 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   doc.text('Demais parcelas:', 10, yForm);
   underline(43, yForm + 0.5, 201);
   if (isInteractive) {
-    const f = new TextField();
-    f.Rect = [43.5, yForm - 4.2, 157.0, 4.4];
-    f.value = endDueStr;
-    f.fieldName = 'vencimento_demais_parcelas';
-    f.fontSize = 8.5;
-    f.showBorder = false;
-    doc.addField(f);
+    createStableAcroTextField(doc, {
+      rect: [43.5, yForm - 3.8, 157.0, 4.0],
+      value: endDueStr,
+      fieldName: 'vencimento_demais_parcelas',
+      fontSize: 9.0,
+      bold: true
+    });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.text(`${endDueStr}`, 45, yForm - 0.5);
