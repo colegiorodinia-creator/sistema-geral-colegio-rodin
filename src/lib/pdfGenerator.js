@@ -94,7 +94,7 @@ export function buildSignedContractPDFDoc(enrollment = {}, signatureData = {}, d
     format: 'a4',
   });
 
-  const isInteractive = Boolean(docOptions.interactive);
+  const isInteractive = docOptions.interactive !== false;
   const { TextField, CheckBox } = jsPDF.AcroForm;
   let fieldCounter = 0;
 
@@ -834,7 +834,7 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
     format: 'a4',
   });
 
-  const isInteractive = Boolean(docOptions.interactive);
+  const isInteractive = docOptions.interactive !== false;
   const { TextField } = jsPDF.AcroForm;
 
   const data = { ...enrollment, ...signatureData };
@@ -1320,11 +1320,25 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   const b2Lines = doc.splitTextToSize(bullet2, 180);
   doc.text(b2Lines, 15, yBox + 29);
 
-  // Data e Local
+  // Data e Local (sem data automática pelo sistema, editável e com linha para preenchimento manual à mão)
   const yDate = 236.7;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
-  doc.text(`Indaiatuba - SP, ${currentDay} de ${currentMonth} de ${currentYear}.`, 105.4, yDate, { align: 'center' });
+  doc.setTextColor(30, 41, 59);
+
+  // Rótulo da cidade e linha contínua oficial para preenchimento à caneta ou digitação
+  doc.text('Indaiatuba - SP,', 56.0, yDate);
+  underline(82.0, yDate + 0.5, 154.0);
+
+  if (isInteractive) {
+    createStableAcroTextField(doc, {
+      rect: [82.5, yDate - 3.8, 71.0, 4.2],
+      value: '',
+      fieldName: 'data_pedido_material',
+      fontSize: 9.5,
+      bold: false
+    });
+  }
 
   // Bloco de Assinaturas
   const ySign = 271.3;
