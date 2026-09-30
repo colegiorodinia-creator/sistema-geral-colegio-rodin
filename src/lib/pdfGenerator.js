@@ -1091,14 +1091,14 @@ export function buildMaterialOrderPDFDoc(enrollment = {}, signatureData = {}, do
   if (isInteractive) {
     createStableAcroTextField(doc, {
       rect: [43.5, yForm - 3.8, 64.0, 4.0],
-      value: `${matInstallments} parcelas (R$ ${matInstallmentVal})`,
+      value: `${matInstallments}x de R$ ${matInstallmentVal}`,
       fieldName: 'numero_parcelas',
       fontSize: 9.0,
       bold: true
     });
   } else {
     doc.setFont('helvetica', 'bold');
-    doc.text(`${matInstallments} parcelas (R$ ${matInstallmentVal})`, 45, yForm - 0.5);
+    doc.text(`${matInstallments}x de R$ ${matInstallmentVal}`, 45, yForm - 0.5);
   }
 
   doc.setFont('helvetica', 'normal');
