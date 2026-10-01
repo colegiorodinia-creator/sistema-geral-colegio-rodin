@@ -758,14 +758,14 @@ export default function ReenrollmentModule() {
     let grossVal = '0,00';
     if (is100Discount) {
       grossVal = '0,00';
-    } else if (student.valor_total_anuidade_2027 !== undefined && student.valor_total_anuidade_2027 !== null && parseBRLToNumber(student.valor_total_anuidade_2027) > 1000) {
-      grossVal = formatNumberToBRL(student.valor_total_anuidade_2027);
     } else if (existingEnrollment.tuitionGrossTotal !== undefined && existingEnrollment.tuitionGrossTotal !== null && parseBRLToNumber(existingEnrollment.tuitionGrossTotal) > 1000) {
       grossVal = formatNumberToBRL(existingEnrollment.tuitionGrossTotal);
     } else if (enrFin.tuitionGrossTotal !== undefined && enrFin.tuitionGrossTotal !== null && parseBRLToNumber(enrFin.tuitionGrossTotal) > 1000) {
       grossVal = formatNumberToBRL(enrFin.tuitionGrossTotal);
     } else if (existingEnrollment.tuitionDiscountTotal !== undefined && existingEnrollment.tuitionDiscountTotal !== null && parseBRLToNumber(existingEnrollment.tuitionDiscountTotal) > 1000) {
       grossVal = formatNumberToBRL(existingEnrollment.tuitionDiscountTotal);
+    } else if (student.valor_total_anuidade_2027 !== undefined && student.valor_total_anuidade_2027 !== null && parseBRLToNumber(student.valor_total_anuidade_2027) > 1000) {
+      grossVal = formatNumberToBRL(student.valor_total_anuidade_2027);
     } else if (normalizedDiscountPct > 0) {
       grossVal = formatNumberToBRL(Math.max(0, nominalNum * (1 - normalizedDiscountPct / 100)));
     } else {
@@ -792,8 +792,8 @@ export default function ReenrollmentModule() {
       detectedLePerini
     );
 
-    const officialFirst = student.valor_1a_parcela_2027 || existingEnrollment.firstInstallmentValue || enrFin.firstInstallmentValue;
-    const officialReg = student.valor_demais_parcelas_2027 || existingEnrollment.regularInstallmentValue || enrFin.regularInstallmentValue;
+    const officialFirst = existingEnrollment.firstInstallmentValue || enrFin.firstInstallmentValue || student.valor_1a_parcela_2027;
+    const officialReg = existingEnrollment.regularInstallmentValue || enrFin.regularInstallmentValue || student.valor_demais_parcelas_2027;
 
     const defaultFirstParcelValue = (officialFirst && parseBRLToNumber(officialFirst) > 50)
       ? formatNumberToBRL(officialFirst)
@@ -1267,6 +1267,17 @@ export default function ReenrollmentModule() {
       newGrade2027: formData.currentGrade,
       schoolShift: formData.schoolShift,
       classGroup: formData.classGroup,
+      valor_total_anuidade_2027: parseBRLToNumber(formData.tuitionGrossTotal),
+      percentual_desconto_2027: (() => {
+        const p = formData.tuitionDiscountPercentage;
+        if (p === undefined || p === null) return 0;
+        return p > 1 ? Number(p) : Number((Number(p) * 100).toFixed(2));
+      })(),
+      valor_nominal_anuidade_2027: parseBRLToNumber(formData.tuitionNominalTotal || formData.tuitionGrossTotal),
+      valor_1a_parcela_2027: parseBRLToNumber(formData.firstInstallmentValue),
+      valor_demais_parcelas_2027: parseBRLToNumber(formData.regularInstallmentValue),
+      tipo_desconto_2027: formData.tuitionDiscountType || '',
+      observacao_desconto_2027: formData.tuitionDiscountReason || '',
       guardians: [
       {
         ...(selectedStudent?.guardians?.[0] || {}),
@@ -2584,19 +2595,17 @@ export default function ReenrollmentModule() {
                       <label className="form-label">Desconto (%):</label>
                       <div className="relative">
                         <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="any"
+                          type="text"
                           value={(() => {
                             const raw = formData.tuitionDiscountPercentage;
-                            if (raw === undefined || raw === null || raw === '') return 0;
+                            if (raw === undefined || raw === null || raw === '') return '0';
                             const num = Number(raw);
-                            if (isNaN(num)) return 0;
-                            return num > 1 ? num : Math.round(num * 10000) / 100;
+                            if (isNaN(num)) return String(raw);
+                            const displayNum = num > 1 ? num : Math.round(num * 10000) / 100;
+                            return String(displayNum).replace('.', ',');
                           })()}
                           onChange={(e) => {
-                            const val = e.target.value;
+                            const val = e.target.value.replace(/[^\d.,]/g, '').replace(',', '.');
                             if (val === '') {
                               handleDiscountPercentageChange(0);
                               return;
