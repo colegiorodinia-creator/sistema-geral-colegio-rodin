@@ -48,7 +48,17 @@ function createStableAcroTextField(doc, { rect, value, fieldName, fontSize = 9.5
   const { TextField } = jsPDF.AcroForm;
   const field = new TextField();
   field.Rect = rect;
-  field.value = (value && value !== '—') ? String(value).trim() : '';
+
+  let rawVal = (value && value !== '—') ? String(value).trim() : '';
+  // Proteção contra bug interno do jsPDF AcroForm que elimina parênteses no início '(' ou no final ')' da string
+  if (rawVal.startsWith('(')) {
+    rawVal = ' ' + rawVal;
+  }
+  if (rawVal.endsWith(')')) {
+    rawVal = rawVal + ' ';
+  }
+
+  field.value = rawVal;
   field.fieldName = fieldName;
   field.fontSize = fontSize;
   field.maxFontSize = fontSize;
