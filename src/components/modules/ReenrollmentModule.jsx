@@ -2938,46 +2938,32 @@ export default function ReenrollmentModule() {
                             <option value="6">6 parcelas mensais</option>
                           </select>
                         </div>
-
-                        {/* Coluna 3 da Linha 1: Botão Padronizar Parcelas Iguais (Apenas se NÃO for Le Perini) */}
-                        {!formData.isLePerini && (
-                          <div className="form-group flex flex-col justify-end">
-                            <label className="form-label text-[#475569] font-bold text-[12px] flex items-center justify-between">
-                              <span>Padronizar Parcelas:</span>
-                              {formData.isEqualInstallments && (
-                                <span className="text-[#15803D] font-black text-[10px] uppercase tracking-wide bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                  Ativo
-                                </span>
-                              )}
-                            </label>
-                            <button
-                              type="button"
-                              id="btn-equal-installments"
-                              onClick={() => handleToggleEqualInstallments()}
-                              className={`w-full h-[42px] flex items-center justify-center gap-2 px-3 rounded-lg text-xs font-bold transition-all shadow-sm ${
-                                formData.isEqualInstallments
-                                  ? 'bg-[#15803D] hover:bg-[#166534] text-white shadow-emerald-600/20 ring-2 ring-emerald-500/40'
-                                  : 'bg-white hover:bg-indigo-50 text-[#4338CA] border-2 border-dashed border-[#818CF8] hover:border-[#4338CA]'
-                              }`}
-                              title={
-                                formData.isEqualInstallments
-                                  ? 'Clique para voltar ao cálculo padrão (1ª parcela integral)'
-                                  : `Clique para padronizar em ${formData.paymentPlanChoice} parcelas iguais`
-                              }
-                            >
-                              <span className={`w-2.5 h-2.5 rounded-full ${formData.isEqualInstallments ? 'bg-white ring-2 ring-white/60 animate-pulse' : 'bg-[#4338CA]'}`} />
-                              {formData.isEqualInstallments
-                                ? `✓ ${formData.paymentPlanChoice}x Iguais de R$ ${formData.firstInstallmentValue}`
-                                : `Padronizar ${formData.paymentPlanChoice}x Iguais`}
-                            </button>
-                          </div>
-                        )}
                       </div>
 
                       {/* Linha 2: Tudo da 1ª Parcela */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="form-group">
-                          <label className="form-label">Valor da 1ª Parcela:</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="form-label !mb-0">Valor da 1ª Parcela:</label>
+                            {!formData.isLePerini && (
+                              <button
+                                type="button"
+                                id="btn-equal-installments"
+                                onClick={() => handleToggleEqualInstallments()}
+                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11.5px] font-bold transition-all ${
+                                  formData.isEqualInstallments
+                                    ? 'bg-[#15803D] text-white hover:bg-[#166534] shadow-xs'
+                                    : 'bg-[#EEF2FF] text-[#4338CA] hover:bg-[#E0E7FF] border border-[#C7D2FE]'
+                                }`}
+                                title="Padronizar o valor da 1ª parcela com as demais parcelas"
+                              >
+                                {formData.isEqualInstallments && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                                )}
+                                Padronizar Parcelas
+                              </button>
+                            )}
+                          </div>
                           <div className="relative">
                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-extrabold text-[12px] text-[#94A3B8] pointer-events-none">
                               R$
