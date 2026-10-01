@@ -2977,23 +2977,7 @@ export default function ReenrollmentModule() {
                       {/* Linha 2: Tudo da 1ª Parcela */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="form-group">
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="form-label !mb-0">Valor da 1ª Parcela:</label>
-                            {!formData.isLePerini && (
-                              <button
-                                type="button"
-                                onClick={() => handleToggleEqualInstallments()}
-                                className={`text-[11px] font-bold px-2 py-0.5 rounded transition-all ${
-                                  formData.isEqualInstallments
-                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                    : 'text-indigo-600 hover:text-indigo-800 hover:underline'
-                                }`}
-                                title="Igualar o valor da 1ª parcela às demais"
-                              >
-                                {formData.isEqualInstallments ? '✓ 1ª igual às demais' : '⚡ Igualar às demais'}
-                              </button>
-                            )}
-                          </div>
+                          <label className="form-label">Valor da 1ª Parcela:</label>
                           <div className="relative">
                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-extrabold text-[12px] text-[#94A3B8] pointer-events-none">
                               R$
