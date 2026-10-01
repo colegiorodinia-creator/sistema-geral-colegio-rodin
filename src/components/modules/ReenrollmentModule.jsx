@@ -831,6 +831,9 @@ export default function ReenrollmentModule() {
     const isCustomDownPayment = Boolean(existingEnrollment.hasCustomFirstInstallment);
     const initialFirstVal = is100Discount ? '0,00' : ((!isCustomDownPayment) ? defaultFirstParcelValue : firstVal);
     const initialRegVal = is100Discount ? '0,00' : ((!isCustomDownPayment) ? defaultRegParcelValue : regVal);
+    const initFirstNum = parseBRLToNumber(initialFirstVal);
+    const initRegNum = parseBRLToNumber(initialRegVal);
+    const initialIsEqual = Boolean(detectedLePerini || (initFirstNum > 0 && initRegNum > 0 && Math.abs(initFirstNum - initRegNum) < 0.05));
 
     const gState = primaryGuardian.guardianAddressState || primaryGuardian.addressState || existingEnrollment.guardianAddressState || 'SP';
     const gCity = cleanCityName(primaryGuardian.guardianAddressCity || primaryGuardian.addressCity || existingEnrollment.guardianAddressCity || 'Indaiatuba');
@@ -892,6 +895,7 @@ export default function ReenrollmentModule() {
 
       // Convênio Le Perini (DLP)
       isLePerini: detectedLePerini,
+      isEqualInstallments: initialIsEqual,
 
       // Financeiro Balder - Oficial 2027 & Histórico 2026
       tuitionNominalTotal: nominalVal,
@@ -963,7 +967,7 @@ export default function ReenrollmentModule() {
 };
 
   // Recálculo automático das parcelas e aplicação de 5% de desconto para À Vista
-  const handleCalculateInstallments = (totalStr, planChoice, customFirstStr, isLePeriniOverride) => {
+  const handleCalculateInstallments = (totalStr, planChoice, customFirstStr, isLePeriniOverride, isEqualOverride) => {
     const total = parseBRLToNumber(totalStr);
 
     if (total <= 0) {
@@ -996,8 +1000,9 @@ export default function ReenrollmentModule() {
     }
 
     const count = parseInt(planChoice) || 13;
-    const nominalNum = parseBRLToNumber(formData.tuitionNominalTotal) || parseBRLToNumber(getNominalTuitionForGrade(formData.currentGrade)) || total;
+    const nominalNum = parseBRLToNumber(formData.tuitionNominalTotal) || parseBRLToNumber(getNominalTuitionForGrade(formData.currentGrade, campaignConfig)) || total;
     const isLP = isLePeriniOverride !== undefined ? Boolean(isLePeriniOverride) : Boolean(formData.isLePerini);
+    const isEqualInst = isEqualOverride !== undefined ? Boolean(isEqualOverride) : Boolean(formData.isEqualInstallments);
     const customFirstNum = (customFirstStr !== undefined && customFirstStr !== '') ? parseBRLToNumber(customFirstStr) : undefined;
 
     const { firstInstallment, regularInstallment } = calculateRodinInstallments(
@@ -1005,7 +1010,8 @@ export default function ReenrollmentModule() {
       nominalNum,
       count,
       isLP,
-      customFirstNum
+      customFirstNum,
+      isEqualInst
     );
 
     setFormData(prev => ({
@@ -1015,6 +1021,7 @@ export default function ReenrollmentModule() {
       installmentsCount: String(count),
       firstInstallmentValue: (customFirstStr !== undefined && customFirstStr !== '') ? customFirstStr : formatNumberToBRL(firstInstallment),
       regularInstallmentValue: formatNumberToBRL(regularInstallment),
+      isEqualInstallments: isEqualInst,
       paymentNote: '* Boleto Bancário com vencimento mensal e sucessivo todo dia: 1º.'
     }));
   };
@@ -1067,7 +1074,9 @@ export default function ReenrollmentModule() {
         finalTuition,
         nominal,
         count,
-        formData.isLePerini
+        formData.isLePerini,
+        undefined,
+        formData.isEqualInstallments
       );
       setFormData(prev => ({
         ...prev,
@@ -1112,7 +1121,9 @@ export default function ReenrollmentModule() {
         finalNum,
         nominalNum,
         count,
-        formData.isLePerini
+        formData.isLePerini,
+        undefined,
+        formData.isEqualInstallments
       );
       updatedFirst = formatNumberToBRL(firstInstallment);
       updatedReg = formatNumberToBRL(regularInstallment);
@@ -1157,7 +1168,9 @@ export default function ReenrollmentModule() {
           finalNum,
           nominalNum,
           count,
-          formData.isLePerini
+          formData.isLePerini,
+          undefined,
+          formData.isEqualInstallments
         );
         updatedFirst = formatNumberToBRL(firstInstallment);
         updatedReg = formatNumberToBRL(regularInstallment);
@@ -1220,6 +1233,124 @@ export default function ReenrollmentModule() {
       } finally {
         setIsLoadingCep(false);
       }
+    }
+  };
+
+  // Permite digitar livremente o Valor da 1ª Parcela sem travar ou bugar
+  const handleFirstInstallmentChange = (rawVal) => {
+    // Permite números, vírgula e ponto sem forçar formatação imediata
+    const cleanStr = String(rawVal ?? '').replace(/[^\d.,]/g, '');
+
+    const total = parseBRLToNumber(formData.tuitionGrossTotal);
+    const count = parseInt(formData.paymentPlanChoice) || 13;
+    const isAvista = formData.paymentPlanChoice === '1_avista_5off' || formData.paymentPlanChoice === '1';
+
+    let updatedReg = formData.regularInstallmentValue;
+
+    if (!isAvista && count > 1 && total > 0 && cleanStr !== '') {
+      const firstNum = parseBRLToNumber(cleanStr);
+      if (firstNum > 0) {
+        const remaining = Math.max(0, total - Math.min(total, firstNum));
+        const regularNum = remaining / (count - 1);
+        updatedReg = formatNumberToBRL(regularNum);
+      }
+    }
+
+    // Se o valor digitado for exatamente o valor igual, mantém isEqualInstallments ativo, senão desativa
+    const firstNum = parseBRLToNumber(cleanStr);
+    const equalVal = count > 0 ? (total / count) : 0;
+    const matchesEqual = Math.abs(firstNum - equalVal) < 0.05;
+
+    setFormData(prev => ({
+      ...prev,
+      firstInstallmentValue: cleanStr,
+      regularInstallmentValue: updatedReg,
+      isEqualInstallments: matchesEqual
+    }));
+  };
+
+  // Ao perder o foco do campo Valor da 1ª Parcela, formata bonitinho em moeda BRL
+  const handleFirstInstallmentBlur = (e) => {
+    const rawVal = e?.target?.value !== undefined ? e.target.value : formData.firstInstallmentValue;
+    const total = parseBRLToNumber(formData.tuitionGrossTotal);
+    const count = parseInt(formData.paymentPlanChoice) || 13;
+    const isAvista = formData.paymentPlanChoice === '1_avista_5off' || formData.paymentPlanChoice === '1';
+    const nominalNum = parseBRLToNumber(formData.tuitionNominalTotal) || parseBRLToNumber(getNominalTuitionForGrade(formData.currentGrade, campaignConfig)) || total;
+
+    let num = parseBRLToNumber(rawVal);
+    if (total > 0 && num > total) {
+      num = total;
+    }
+
+    // Se ficou vazio ou zero, recalcula valor de acordo com o modo atual
+    if (num <= 0 && total > 0) {
+      const { firstInstallment, regularInstallment } = calculateRodinInstallments(
+        total,
+        nominalNum,
+        count,
+        formData.isLePerini,
+        undefined,
+        formData.isEqualInstallments
+      );
+      num = firstInstallment;
+    }
+
+    const formattedFirst = formatNumberToBRL(num);
+    let formattedReg = '0,00';
+
+    if (!isAvista && count > 1 && total > 0) {
+      const remaining = Math.max(0, total - num);
+      formattedReg = formatNumberToBRL(remaining / (count - 1));
+    }
+
+    const equalVal = count > 0 ? (total / count) : 0;
+    const matchesEqual = Math.abs(num - equalVal) < 0.05;
+
+    setFormData(prev => ({
+      ...prev,
+      firstInstallmentValue: formattedFirst,
+      regularInstallmentValue: formattedReg,
+      isEqualInstallments: matchesEqual
+    }));
+  };
+
+  // Padronizar ou reverter parcelas com valores iguais (ex: 13x iguais ou 12x iguais)
+  const handleToggleEqualInstallments = (forceState) => {
+    const targetState = forceState !== undefined ? forceState : !formData.isEqualInstallments;
+    const total = parseBRLToNumber(formData.tuitionGrossTotal);
+    const count = parseInt(formData.paymentPlanChoice) || 13;
+    const nominalNum = parseBRLToNumber(formData.tuitionNominalTotal) || parseBRLToNumber(getNominalTuitionForGrade(formData.currentGrade, campaignConfig)) || total;
+
+    if (targetState) {
+      // Ativar: 1ª parcela e demais com valores rigorosamente idênticos (total / count)
+      const equalVal = count > 0 ? (total / count) : 0;
+      const formatted = formatNumberToBRL(equalVal);
+      setFormData(prev => ({
+        ...prev,
+        isEqualInstallments: true,
+        firstInstallmentValue: formatted,
+        regularInstallmentValue: formatted
+      }));
+      showToast(`Parcelas padronizadas: ${count}x de R$ ${formatted}`);
+    } else {
+      // Desativar: volta à regra padrão Rodin (1ª parcela integral/nominal para custeio de 13º)
+      const { firstInstallment, regularInstallment } = calculateRodinInstallments(
+        total,
+        nominalNum,
+        count,
+        false,
+        undefined,
+        false
+      );
+      const fFirst = formatNumberToBRL(firstInstallment);
+      const fReg = formatNumberToBRL(regularInstallment);
+      setFormData(prev => ({
+        ...prev,
+        isEqualInstallments: false,
+        firstInstallmentValue: fFirst,
+        regularInstallmentValue: fReg
+      }));
+      showToast('Cálculo padrão restabelecido (1ª parcela integral).');
     }
   };
 
@@ -1462,7 +1593,9 @@ export default function ReenrollmentModule() {
         total,
         nominalNum,
         count,
-        isChecked
+        isChecked,
+        undefined,
+        isChecked ? true : formData.isEqualInstallments
       );
       newFirst = formatNumberToBRL(firstInstallment);
       newReg = formatNumberToBRL(regularInstallment);
@@ -1471,6 +1604,7 @@ export default function ReenrollmentModule() {
     const nextFormData = {
       ...formData,
       isLePerini: isChecked,
+      isEqualInstallments: isChecked ? true : formData.isEqualInstallments,
       firstInstallmentValue: newFirst,
       regularInstallmentValue: newReg
     };
@@ -2734,27 +2868,8 @@ export default function ReenrollmentModule() {
                             <input
                               type="text"
                               value={formData.firstInstallmentValue}
-                              onChange={(e) => {
-                                const raw = e.target.value.replace(/[^\d.,]/g, '');
-                                const maxTotal = parseBRLToNumber(formData.tuitionGrossTotal);
-                                const num = parseBRLToNumber(raw);
-                                if (maxTotal > 0 && num > maxTotal) {
-                                  handleCalculateInstallments(formData.tuitionGrossTotal, formData.paymentPlanChoice, formatNumberToBRL(maxTotal));
-                                  return;
-                                }
-                                handleCalculateInstallments(formData.tuitionGrossTotal, formData.paymentPlanChoice, raw);
-                              }}
-                              onBlur={(e) => {
-                                const maxTotal = parseBRLToNumber(formData.tuitionGrossTotal);
-                                let num = parseBRLToNumber(e.target.value);
-                                if (maxTotal > 0 && num > maxTotal) {
-                                  num = maxTotal;
-                                }
-                                if (num > 0) {
-                                  const formatted = formatNumberToBRL(num);
-                                  handleCalculateInstallments(formData.tuitionGrossTotal, formData.paymentPlanChoice, formatted);
-                                }
-                              }}
+                              onChange={(e) => handleFirstInstallmentChange(e.target.value)}
+                              onBlur={handleFirstInstallmentBlur}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                   e.currentTarget.blur();
@@ -2823,12 +2938,62 @@ export default function ReenrollmentModule() {
                             <option value="6">6 parcelas mensais</option>
                           </select>
                         </div>
+
+                        {/* Coluna 3 da Linha 1: Botão Padronizar Parcelas Iguais (Apenas se NÃO for Le Perini) */}
+                        {!formData.isLePerini && (
+                          <div className="form-group flex flex-col justify-end">
+                            <label className="form-label text-[#475569] font-bold text-[12px] flex items-center justify-between">
+                              <span>Padronizar Parcelas:</span>
+                              {formData.isEqualInstallments && (
+                                <span className="text-[#15803D] font-black text-[10px] uppercase tracking-wide bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                  Ativo
+                                </span>
+                              )}
+                            </label>
+                            <button
+                              type="button"
+                              id="btn-equal-installments"
+                              onClick={() => handleToggleEqualInstallments()}
+                              className={`w-full h-[42px] flex items-center justify-center gap-2 px-3 rounded-lg text-xs font-bold transition-all shadow-sm ${
+                                formData.isEqualInstallments
+                                  ? 'bg-[#15803D] hover:bg-[#166534] text-white shadow-emerald-600/20 ring-2 ring-emerald-500/40'
+                                  : 'bg-white hover:bg-indigo-50 text-[#4338CA] border-2 border-dashed border-[#818CF8] hover:border-[#4338CA]'
+                              }`}
+                              title={
+                                formData.isEqualInstallments
+                                  ? 'Clique para voltar ao cálculo padrão (1ª parcela integral)'
+                                  : `Clique para padronizar em ${formData.paymentPlanChoice} parcelas iguais`
+                              }
+                            >
+                              <span className={`w-2.5 h-2.5 rounded-full ${formData.isEqualInstallments ? 'bg-white ring-2 ring-white/60 animate-pulse' : 'bg-[#4338CA]'}`} />
+                              {formData.isEqualInstallments
+                                ? `✓ ${formData.paymentPlanChoice}x Iguais de R$ ${formData.firstInstallmentValue}`
+                                : `Padronizar ${formData.paymentPlanChoice}x Iguais`}
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Linha 2: Tudo da 1ª Parcela */}
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="form-group">
-                          <label className="form-label">Valor da 1ª Parcela:</label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="form-label !mb-0">Valor da 1ª Parcela:</label>
+                            {!formData.isLePerini && (
+                              <button
+                                type="button"
+                                onClick={() => handleToggleEqualInstallments()}
+                                className={`text-[11px] font-bold px-2 py-0.5 rounded transition-all ${
+                                  formData.isEqualInstallments
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                    : 'text-indigo-600 hover:text-indigo-800 hover:underline'
+                                }`}
+                                title="Igualar o valor da 1ª parcela às demais"
+                              >
+                                {formData.isEqualInstallments ? '✓ 1ª igual às demais' : '⚡ Igualar às demais'}
+                              </button>
+                            )}
+                          </div>
                           <div className="relative">
                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-extrabold text-[12px] text-[#94A3B8] pointer-events-none">
                               R$
@@ -2836,33 +3001,15 @@ export default function ReenrollmentModule() {
                             <input
                               type="text"
                               value={formData.firstInstallmentValue}
-                              onChange={(e) => {
-                                const raw = e.target.value.replace(/[^\d.,]/g, '');
-                                const maxTotal = parseBRLToNumber(formData.tuitionGrossTotal);
-                                const num = parseBRLToNumber(raw);
-                                if (maxTotal > 0 && num > maxTotal) {
-                                  handleCalculateInstallments(formData.tuitionGrossTotal, formData.paymentPlanChoice, formatNumberToBRL(maxTotal));
-                                  return;
-                                }
-                                handleCalculateInstallments(formData.tuitionGrossTotal, formData.paymentPlanChoice, raw);
-                              }}
-                              onBlur={(e) => {
-                                const maxTotal = parseBRLToNumber(formData.tuitionGrossTotal);
-                                let num = parseBRLToNumber(e.target.value);
-                                if (maxTotal > 0 && num > maxTotal) {
-                                  num = maxTotal;
-                                }
-                                if (num > 0) {
-                                  const formatted = formatNumberToBRL(num);
-                                  handleCalculateInstallments(formData.tuitionGrossTotal, formData.paymentPlanChoice, formatted);
-                                }
-                              }}
+                              onChange={(e) => handleFirstInstallmentChange(e.target.value)}
+                              onBlur={handleFirstInstallmentBlur}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                   e.currentTarget.blur();
                                 }
                               }}
                               className="form-control !pl-10 font-bold"
+                              title="Digite o valor desejado para a 1ª parcela"
                             />
                           </div>
                         </div>

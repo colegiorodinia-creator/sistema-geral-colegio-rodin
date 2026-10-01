@@ -284,9 +284,10 @@ export function isLePeriniStudent(student, enrollment) {
  * @param {number} parcelasCount - Quantidade de parcelas (ex: 13, 12, etc.)
  * @param {boolean} isLePerini - Se o aluno é Le Perini (DLP)
  * @param {number} [customFirstVal] - Valor opcional customizado para a 1ª parcela
+ * @param {boolean} [isEqualInstallments] - Se as parcelas devem ser uniformes/iguais para alunos não Le Perini
  * @returns {{ firstInstallment: number, regularInstallment: number }}
  */
-export function calculateRodinInstallments(totalContrato, nominalTotal, parcelasCount, isLePerini, customFirstVal) {
+export function calculateRodinInstallments(totalContrato, nominalTotal, parcelasCount, isLePerini, customFirstVal, isEqualInstallments) {
   const count = parseInt(parcelasCount) || 13;
   const total = typeof totalContrato === 'number' ? totalContrato : 0;
   const nominal = typeof nominalTotal === 'number' && nominalTotal > 0 ? nominalTotal : total;
@@ -299,16 +300,16 @@ export function calculateRodinInstallments(totalContrato, nominalTotal, parcelas
     return { firstInstallment: total, regularInstallment: 0 };
   }
 
-  // Se o usuário informou um valor customizado explicitamente para a 1ª parcela
-  if (customFirstVal !== undefined && customFirstVal !== null && customFirstVal > 0) {
+  // Se o usuário informou um valor customizado explicitamente para a 1ª parcela (e não está forçado em parcelas iguais)
+  if (!isEqualInstallments && customFirstVal !== undefined && customFirstVal !== null && customFirstVal > 0) {
     const first = Math.min(total, customFirstVal);
     const remaining = Math.max(0, total - first);
     const regular = count > 1 ? (remaining / (count - 1)) : 0;
     return { firstInstallment: first, regularInstallment: regular };
   }
 
-  if (isLePerini) {
-    // Aluno Le Perini (DLP): todas as parcelas uniformes
+  if (isLePerini || isEqualInstallments) {
+    // Aluno Le Perini (DLP) ou opção "Parcelas Iguais": todas as parcelas uniformes
     const first = total / count;
     return { firstInstallment: first, regularInstallment: first };
   }
@@ -321,3 +322,4 @@ export function calculateRodinInstallments(totalContrato, nominalTotal, parcelas
 
   return { firstInstallment: first, regularInstallment: regular };
 }
+

@@ -578,8 +578,8 @@ export function AppProvider({ children }) {
   const [activeTab, setActiveTab] = useState('rematricula');
   const [classes, setClasses] = useState(ALL_CLASSES_2027 && ALL_CLASSES_2027.length > 0 ? ALL_CLASSES_2027 : INITIAL_CLASSES);
 
-  // Cache Buster para garantir percentuais e valores oficiais com suporte pleno a edições manuais
-  const DB_VERSION = 'rodin_2027_v23_fix_custom_discount_edits';
+  // Cache Buster para garantir percentuais e valores oficiais com suporte pleno a edições manuais e parcelas iguais
+  const DB_VERSION = 'rodin_2027_v24_equal_installments_and_first_parcel_fix';
   try {
     if (typeof window !== 'undefined' && localStorage.getItem('rodin_db_version') !== DB_VERSION) {
       localStorage.removeItem('rodin_students');
