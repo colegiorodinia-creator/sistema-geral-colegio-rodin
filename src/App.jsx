@@ -78,7 +78,7 @@ export default function App() {
 
   const renderActiveTab = () => {
     // Restrição estrita de acesso por cargo (Negação por Padrão)
-    if (currentUser?.role === 'enrollment' && !['rematricula', 'config-rematricula', 'matriculas', 'matriculas-list', 'matriculas-nova'].includes(activeTab)) {
+    if (currentUser?.role === 'enrollment' && !['dashboard', 'rematricula', 'config-rematricula', 'matriculas', 'matriculas-list', 'matriculas-nova'].includes(activeTab)) {
       return <ReenrollmentModule />;
     }
 

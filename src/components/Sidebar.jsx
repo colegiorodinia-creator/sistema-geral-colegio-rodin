@@ -38,7 +38,7 @@ export default function Sidebar({ onOpenRoleSwitcher }) {
     {
       title: 'GESTÃO OPERACIONAL',
       items: [
-        { id: 'dashboard', label: 'Análise Geral', icon: LayoutDashboard, allowedRoles: ['admin', 'director', 'coordinator', 'secretary'] },
+        { id: 'dashboard', label: 'Painel Geral', icon: LayoutDashboard, allowedRoles: ['admin', 'director', 'coordinator', 'secretary', 'enrollment'] },
         { id: 'raiox', label: 'Raio-X do Aluno', icon: UserCheck, allowedRoles: ['admin', 'director', 'coordinator', 'teacher', 'secretary'] },
       ]
     },

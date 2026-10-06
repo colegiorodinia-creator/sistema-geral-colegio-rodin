@@ -239,7 +239,7 @@ export async function fetchStudentsFromSupabase() {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
 
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/students?select=*&limit=1000`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/students?select=*&limit=2000`, {
       method: 'GET',
       headers: {
         'apikey': SUPABASE_ANON_KEY,
@@ -255,6 +255,190 @@ export async function fetchStudentsFromSupabase() {
     console.warn('Erro ao buscar estudantes do Supabase:', err);
   }
   return null;
+}
+
+/**
+ * Busca todas as matrículas cadastradas na tabela public.enrollments do Supabase.
+ */
+export async function fetchEnrollmentsFromSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/enrollments?select=*&limit=2000`, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data;
+    }
+  } catch (err) {
+    console.warn('Erro ao buscar matrículas do Supabase:', err);
+  }
+  return null;
+}
+
+/**
+ * Busca todos os contratos cadastrados na tabela public.contracts do Supabase.
+ */
+export async function fetchContractsFromSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/contracts?select=*&limit=2000`, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return data;
+    }
+  } catch (err) {
+    console.warn('Erro ao buscar contratos do Supabase:', err);
+  }
+  return null;
+}
+
+/**
+ * Carrega a base consolidada do Supabase (estudantes + matrículas + contratos vinculados).
+ */
+export async function fetchFullDatabaseData() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+
+  try {
+    const [dbStudents, dbEnrollments, dbContracts] = await Promise.all([
+      fetchStudentsFromSupabase(),
+      fetchEnrollmentsFromSupabase(),
+      fetchContractsFromSupabase()
+    ]);
+
+    if (!Array.isArray(dbStudents) || dbStudents.length === 0) {
+      return null;
+    }
+
+    const contractsByStudentId = new Map();
+    const contractsByEnrollmentId = new Map();
+    if (Array.isArray(dbContracts)) {
+      dbContracts.forEach(c => {
+        if (c.student_id) contractsByStudentId.set(c.student_id, c);
+        if (c.enrollment_id) contractsByEnrollmentId.set(c.enrollment_id, c);
+      });
+    }
+
+    const enrollmentsByStudentId = new Map();
+    if (Array.isArray(dbEnrollments)) {
+      dbEnrollments.forEach(e => {
+        if (e.student_id) enrollmentsByStudentId.set(e.student_id, e);
+      });
+    }
+
+    // Mapear estudantes enriquecidos com dados de matrícula e contrato
+    const mappedStudents = dbStudents.map(s => {
+      const enr = enrollmentsByStudentId.get(s.id);
+      const contract = (enr && contractsByEnrollmentId.get(enr.id)) || contractsByStudentId.get(s.id);
+
+      let discountPct = 0;
+      if (contract && contract.tuition_discount_percentage !== null && contract.tuition_discount_percentage !== undefined) {
+        const val = Number(contract.tuition_discount_percentage);
+        discountPct = (val > 0 && val <= 1) ? Number((val * 100).toFixed(1)) : Number(val.toFixed(1));
+      } else if (s.is_le_perini) {
+        discountPct = 25.0;
+      }
+
+      return {
+        id: s.id,
+        name: s.name,
+        studentName: s.name,
+        rmNumber: s.rm_number,
+        cocCode: s.coc_code || s.rm_number,
+        enrollmentCode: s.enrollment_code || `ROD-2027-${s.rm_number}`,
+        gender: s.gender,
+        birthDate: s.birth_date,
+        birthCity: s.birth_city,
+        nationality: s.nationality,
+        rg: s.rg,
+        rgIssuer: s.rg_issuer,
+        rgIssueDate: s.rg_issue_date,
+        cpf: s.cpf,
+        studentPhone: s.student_phone,
+        courseLevel: s.course_level,
+        currentGrade: s.current_grade,
+        serie_ano_atual: s.current_grade,
+        nova_serie_ano_2027: enr?.new_grade || null,
+        newGrade2027: enr?.new_grade || null,
+        classGroup: s.class_group,
+        schoolShift: s.school_shift,
+        schoolUnit: s.school_unit,
+        specialNeedsDesc: s.special_needs_desc,
+        condition: s.special_needs_desc,
+        medicalAllergies: s.medical_allergies,
+        emergencyContact: s.emergency_contact,
+        photoUrl: s.photo_url,
+        attendanceRate: s.attendance_rate,
+        isLePerini: Boolean(s.is_le_perini),
+        percentual_desconto_2027: discountPct,
+        valor_nominal_anuidade_2027: contract?.tuition_nominal_total || 34663.20,
+        valor_total_anuidade_2027: contract?.tuition_discount_total || contract?.tuition_gross_total || 34663.20,
+        valor_1a_parcela_2027: contract?.first_installment_value || null,
+        valor_demais_parcelas_2027: contract?.regular_installment_value || null,
+        tipo_desconto_2027: contract?.tuition_discount_type || (s.is_le_perini ? 'Parceria Le Perini' : null),
+        observacao_desconto_2027: contract?.tuition_discount_reason || null
+      };
+    });
+
+    // Mapear matrículas
+    const mappedEnrollments = (dbEnrollments || []).map(e => {
+      const studentObj = mappedStudents.find(s => s.id === e.student_id || String(s.rmNumber) === String(e.enrollment_code?.replace(/\D/g, '')));
+      const contract = contractsByEnrollmentId.get(e.id) || (studentObj && contractsByStudentId.get(studentObj.id));
+
+      let discountPct = studentObj?.percentual_desconto_2027 || 0;
+      if (contract && contract.tuition_discount_percentage !== null && contract.tuition_discount_percentage !== undefined) {
+        const val = Number(contract.tuition_discount_percentage);
+        discountPct = (val > 0 && val <= 1) ? Number((val * 100).toFixed(1)) : Number(val.toFixed(1));
+      }
+
+      return {
+        id: e.id,
+        enrollmentCode: e.enrollment_code,
+        studentId: e.student_id,
+        studentName: studentObj?.name || 'Estudante',
+        rmNumber: studentObj?.rmNumber || e.enrollment_code?.replace(/\D/g, '') || '',
+        cocCode: studentObj?.cocCode || studentObj?.rmNumber || '',
+        academicYear: e.academic_year || 2027,
+        courseLevel: e.course_level || studentObj?.courseLevel,
+        currentGrade: e.current_grade || studentObj?.currentGrade,
+        newGrade: e.new_grade || studentObj?.newGrade2027,
+        classGroup: e.class_group || studentObj?.classGroup,
+        status: e.status,
+        schoolContractStatus: e.school_contract_status,
+        materialContractStatus: e.material_contract_status,
+        createdAt: e.created_at,
+        updatedAt: e.updated_at,
+        isLePerini: studentObj?.isLePerini || false,
+        tuitionDiscountPercentage: discountPct,
+        tuitionGrossTotal: contract?.tuition_gross_total || 34663.20,
+        tuitionAnnualNominal: contract?.tuition_nominal_total || 34663.20,
+        tuitionDiscountTotal: contract?.tuition_discount_total || 34663.20
+      };
+    });
+
+    return {
+      students: mappedStudents,
+      enrollments: mappedEnrollments,
+      contracts: dbContracts || []
+    };
+  } catch (err) {
+    console.warn('Erro ao carregar banco completo do Supabase:', err);
+    return null;
+  }
 }
 
 /**

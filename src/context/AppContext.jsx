@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ALL_CLASSES_2027, ALL_STUDENTS_2027, ALL_ENROLLMENTS_2027 } from '../data/initialData2027';
 import { FIXED_RATES_2027, getFixedRatesForGrade, DEFAULT_CAMPAIGN_CONFIG, getDynamicRatesForGrade, isLePeriniStudent, calculateRodinInstallments } from '../data/fixedRates';
-import { syncEnrollmentToSupabase, fetchProfilesFromSupabase, fetchStudentsFromSupabase } from '../lib/supabaseStorage';
+import { syncEnrollmentToSupabase, fetchProfilesFromSupabase, fetchStudentsFromSupabase, fetchFullDatabaseData } from '../lib/supabaseStorage';
 
 const AppContext = createContext();
 
@@ -551,9 +551,34 @@ export function AppProvider({ children }) {
     }
   };
 
+  const [isDbLoaded, setIsDbLoaded] = useState(false);
+
+  // Sincronização completa em tempo real com todas as tabelas do Supabase (estudantes, matrículas e contratos)
+  const syncAllWithSupabase = async () => {
+    try {
+      const fullData = await fetchFullDatabaseData();
+      if (fullData && Array.isArray(fullData.students) && fullData.students.length > 0) {
+        setStudents(fullData.students);
+        if (Array.isArray(fullData.enrollments) && fullData.enrollments.length > 0) {
+          setEnrollments(fullData.enrollments);
+        }
+        setIsDbLoaded(true);
+        try {
+          localStorage.setItem('rodin_students', JSON.stringify(fullData.students));
+          localStorage.setItem('rodin_enrollments', JSON.stringify(fullData.enrollments));
+        } catch (e) {}
+        console.log(`[Supabase DB] Base completa sincronizada com sucesso: ${fullData.students.length} estudantes e ${fullData.enrollments.length} matrículas.`);
+        return true;
+      }
+    } catch (err) {
+      console.warn('Erro ao sincronizar com Supabase:', err);
+    }
+    return false;
+  };
+
   useEffect(() => {
     refreshUsersFromSupabase();
-    refreshStudentsFromSupabase();
+    syncAllWithSupabase();
   }, []);
 
   const updateUserProfile = (updatedUser) => {
@@ -997,6 +1022,8 @@ export function AppProvider({ children }) {
       currentGrade: proposalData.currentGrade || '6º Ano EF',
       academicYear: proposalData.academicYear || 2027,
       status: 'pending_parent_completion', // Aguardando Preenchimento e Assinatura do Pai
+      enrollmentType: 'new',
+      isNewStudent: true,
       createdAt: new Date().toISOString(),
       contractId,
       // Dados Financeiros Fixados pela Escola
@@ -1378,7 +1405,9 @@ export function AppProvider({ children }) {
       campaignConfig,
       updateCampaignConfig,
       DEFAULT_CAMPAIGN_CONFIG,
-      getDynamicRatesForGrade
+      getDynamicRatesForGrade,
+      isDbLoaded,
+      syncAllWithSupabase
     }}>
       {children}
       {toastMessage && (
