@@ -183,17 +183,17 @@ export default function Sidebar({ onOpenRoleSwitcher }) {
             title="Configurações do Meu Perfil (Nome, Foto, Senha)"
           >
             <img
-              src={currentUser.avatar}
-              alt={currentUser.name}
+              src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+              alt={currentUser?.name || 'Usuário'}
               className="w-9 h-9 min-w-[36px] rounded-full object-cover border-2 border-[#F45206]"
             />
             {(!isSidebarCollapsed || isMobile) && (
               <div className="flex flex-col min-w-0">
                 <span className="text-[12px] font-extrabold text-[#1E293B] truncate leading-tight">
-                  {currentUser.name}
+                  {currentUser?.name || 'Usuário'}
                 </span>
                 <span className="text-[10px] font-semibold text-[#F45206] truncate">
-                  {currentUser.roleLabel}
+                  {currentUser?.roleLabel || ''}
                 </span>
               </div>
             )}

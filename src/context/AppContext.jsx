@@ -405,6 +405,8 @@ export function AppProvider({ children }) {
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
+      const isAuth = localStorage.getItem('rodin_is_authenticated');
+      if (isAuth !== 'true') return null;
       const saved = localStorage.getItem('rodin_current_user');
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -422,7 +424,7 @@ export function AppProvider({ children }) {
         }
       }
     } catch (e) {}
-    return PRESET_USERS[0];
+    return null;
   });
 
   // Função para sincronizar perfis atualizados diretamente da tabela public.profiles do Supabase
@@ -603,8 +605,8 @@ export function AppProvider({ children }) {
   const [activeTab, setActiveTab] = useState('rematricula');
   const [classes, setClasses] = useState(ALL_CLASSES_2027 && ALL_CLASSES_2027.length > 0 ? ALL_CLASSES_2027 : INITIAL_CLASSES);
 
-  // Cache Buster para garantir percentuais, responsáveis vinculados e rematrículas atualizadas
-  const DB_VERSION = 'rodin_2027_v25_guardians_supabase_sync_and_24_reenrolled';
+  // Cache Buster para garantir autenticação segura e expiração de sessões automáticas
+  const DB_VERSION = 'rodin_2027_v26_enforce_auth_no_auto_login';
   try {
     if (typeof window !== 'undefined' && localStorage.getItem('rodin_db_version') !== DB_VERSION) {
       localStorage.removeItem('rodin_students');
@@ -613,6 +615,8 @@ export function AppProvider({ children }) {
       localStorage.removeItem('rodin_signing_enrollment');
       localStorage.removeItem('rodin_pending_reenrollment_search');
       localStorage.removeItem('rodin_discount_options_v4');
+      localStorage.removeItem('rodin_is_authenticated');
+      localStorage.removeItem('rodin_current_user');
       localStorage.setItem('rodin_db_version', DB_VERSION);
     }
   } catch (e) {}
@@ -721,8 +725,12 @@ export function AppProvider({ children }) {
   const [toastMessage, setToastMessage] = useState(null);
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    const saved = localStorage.getItem('rodin_is_authenticated');
-    return saved !== null ? saved === 'true' : true;
+    try {
+      const saved = localStorage.getItem('rodin_is_authenticated');
+      return saved === 'true';
+    } catch (e) {
+      return false;
+    }
   });
 
   const login = (user) => {
@@ -732,14 +740,20 @@ export function AppProvider({ children }) {
     setIsAuthenticated(true);
     const targetTab = getDefaultTabForRole(freshUser.role);
     setActiveTab(targetTab);
-    localStorage.setItem('rodin_is_authenticated', 'true');
-    localStorage.setItem('rodin_current_user', JSON.stringify(freshUser));
+    try {
+      localStorage.setItem('rodin_is_authenticated', 'true');
+      localStorage.setItem('rodin_current_user', JSON.stringify(freshUser));
+    } catch (e) {}
     showToast(`Bem-vindo(a), ${freshUser.name}!`);
   };
 
   const logout = () => {
     setIsAuthenticated(false);
-    localStorage.setItem('rodin_is_authenticated', 'false');
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem('rodin_is_authenticated');
+      localStorage.removeItem('rodin_current_user');
+    } catch (e) {}
     if (typeof window !== 'undefined') {
       window.location.hash = '';
     }

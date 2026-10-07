@@ -22,10 +22,10 @@ export default function LoginScreen() {
     }
   }, [refreshUsersFromSupabase]);
 
-  const [identifier, setIdentifier] = useState('kelly.vilani@colegiorodin.com.br');
-  const [password, setPassword] = useState('rodin2027');
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);

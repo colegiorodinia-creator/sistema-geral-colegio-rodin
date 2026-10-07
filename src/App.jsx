@@ -53,7 +53,7 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, [setActiveTab]);
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !currentUser) {
     return <LoginScreen />;
   }
 
