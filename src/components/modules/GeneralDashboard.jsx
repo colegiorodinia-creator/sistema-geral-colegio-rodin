@@ -400,11 +400,7 @@ export default function GeneralDashboard() {
 
           <div className="mt-3 pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between text-[10px] text-[#64748B]">
             <span>{getComparisonLabel()} ({kpi2.prevCount})</span>
-            {isSixthGradeSelected ? (
-              <span className="font-bold text-[#4338CA]">{kpi2.lpCount} Le Perini • {kpi2.regularCount} Gerais</span>
-            ) : (
-              <span className="font-bold text-[#059669]">Novos Ingressantes</span>
-            )}
+            <span className="font-bold text-[#059669]">Novos Ingressantes</span>
           </div>
         </div>
 
@@ -481,8 +477,8 @@ export default function GeneralDashboard() {
           </div>
 
           <div className="mt-3 pt-2.5 border-t border-[#F1F5F9] flex items-center justify-between text-[10px]">
-            <span className="font-bold text-[#4338CA]">Le Perini: {kpiDiscount.avgLP}%</span>
-            <span className="font-semibold text-[#64748B]">Geral: {kpiDiscount.avgRegular}%</span>
+            <span className="font-semibold text-[#64748B]">Média Geral de Desconto</span>
+            <span className="font-bold text-[#D97706]">{kpiDiscount.avgOverall}%</span>
           </div>
         </div>
       </div>
@@ -499,100 +495,43 @@ export default function GeneralDashboard() {
 
           {/* Legenda Direta */}
           <div className="flex items-center flex-wrap gap-3 text-[11px] font-bold">
-            {isSixthGradeSelected ? (
-              <>
-                <span className="flex items-center gap-1.5 text-[#4338CA]">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#4338CA]" /> Novos Le Perini ({kpi1.lpCount})
-                </span>
-                <span className="flex items-center gap-1.5 text-[#059669]">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#059669]" /> Novos Gerais ({kpi1.regularCount})
-                </span>
-                <span className="flex items-center gap-1.5 text-[#64748B]">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#CBD5E1]" /> Vagas Livres ({kpi3.remainingVacancies})
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="flex items-center gap-1.5 text-[#1E293B]">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#F45206]" /> Rematrícula ({kpi1.regularCount})
-                </span>
-                <span className="flex items-center gap-1.5 text-[#4338CA]">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#4338CA]" /> Le Perini ({kpi1.lpCount})
-                </span>
-                <span className="flex items-center gap-1.5 text-[#059669]">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#059669]" /> Alunos Novos ({kpi2.count})
-                </span>
-                <span className="flex items-center gap-1.5 text-[#64748B]">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#CBD5E1]" /> Vagas Livres ({kpi3.remainingVacancies})
-                </span>
-              </>
-            )}
+            <span className="flex items-center gap-1.5 text-[#1E293B]">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#F45206]" /> Rematrícula ({kpi1.count ?? kpi1.confirmedCount ?? 0})
+            </span>
+            <span className="flex items-center gap-1.5 text-[#059669]">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#059669]" /> Alunos Novos ({kpi2.count ?? 0})
+            </span>
+            <span className="flex items-center gap-1.5 text-[#64748B]">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#CBD5E1]" /> Vagas Livres ({kpi3.remainingVacancies ?? 0})
+            </span>
           </div>
         </div>
 
         {/* Barra Proporcional */}
         <div className="w-full h-7 rounded-xl overflow-hidden flex bg-[#F1F5F9] shadow-inner p-0.5 gap-0.5">
-          {isSixthGradeSelected ? (
-            <>
-              <div
-                className="bg-[#4338CA] rounded-lg flex items-center justify-center text-white text-[11px] font-black transition-all"
-                style={{ width: `${kpi3.goal > 0 ? (kpi1.lpCount / kpi3.goal) * 100 : 0}%` }}
-                title={`Novos Le Perini: ${kpi1.lpCount}`}
-              >
-                {kpi1.lpCount > 25 && `${kpi1.lpCount} Le Perini`}
-              </div>
+          <div
+            className="bg-[#F45206] rounded-lg flex items-center justify-center text-white text-[11px] font-black transition-all"
+            style={{ width: `${kpi3.goal > 0 ? ((kpi1.count ?? kpi1.confirmedCount ?? 0) / kpi3.goal) * 100 : 0}%` }}
+            title={`Alunos Rematriculados: ${kpi1.count ?? kpi1.confirmedCount ?? 0}`}
+          >
+            {(kpi1.count ?? kpi1.confirmedCount ?? 0) > 0 && `${kpi1.count ?? kpi1.confirmedCount ?? 0}`}
+          </div>
 
-              <div
-                className="bg-[#059669] rounded-lg flex items-center justify-center text-white text-[11px] font-black transition-all"
-                style={{ width: `${kpi3.goal > 0 ? (kpi1.regularCount / kpi3.goal) * 100 : 0}%` }}
-                title={`Novos Gerais: ${kpi1.regularCount}`}
-              >
-                {kpi1.regularCount > 20 && `${kpi1.regularCount} Gerais`}
-              </div>
+          <div
+            className="bg-[#059669] rounded-lg flex items-center justify-center text-white text-[11px] font-black transition-all"
+            style={{ width: `${kpi3.goal > 0 ? ((kpi2.count ?? 0) / kpi3.goal) * 100 : 0}%` }}
+            title={`Alunos Novos: ${kpi2.count ?? 0}`}
+          >
+            {(kpi2.count ?? 0) > 0 && `${kpi2.count ?? 0}`}
+          </div>
 
-              <div
-                className="bg-[#E2E8F0] rounded-lg flex items-center justify-center text-[#64748B] text-[11px] font-bold transition-all"
-                style={{ width: `${kpi3.goal > 0 ? (kpi3.remainingVacancies / kpi3.goal) * 100 : 0}%` }}
-                title={`Vagas Livres: ${kpi3.remainingVacancies}`}
-              >
-                {kpi3.remainingVacancies > 10 && `${kpi3.remainingVacancies} livres`}
-              </div>
-            </>
-          ) : (
-            <>
-              <div
-                className="bg-[#F45206] rounded-lg flex items-center justify-center text-white text-[11px] font-black transition-all"
-                style={{ width: `${kpi3.goal > 0 ? (kpi1.regularCount / kpi3.goal) * 100 : 0}%` }}
-                title={`Rematriculados Gerais: ${kpi1.regularCount}`}
-              >
-                {kpi1.regularCount > 40 && `${kpi1.regularCount}`}
-              </div>
-
-              <div
-                className="bg-[#4338CA] rounded-lg flex items-center justify-center text-white text-[11px] font-black transition-all"
-                style={{ width: `${kpi3.goal > 0 ? (kpi1.lpCount / kpi3.goal) * 100 : 0}%` }}
-                title={`Le Perini: ${kpi1.lpCount}`}
-              >
-                {kpi1.lpCount > 35 && `${kpi1.lpCount}`}
-              </div>
-
-              <div
-                className="bg-[#059669] rounded-lg flex items-center justify-center text-white text-[11px] font-black transition-all"
-                style={{ width: `${kpi3.goal > 0 ? (kpi2.count / kpi3.goal) * 100 : 0}%` }}
-                title={`Novos: ${kpi2.count}`}
-              >
-                {kpi2.count > 25 && `${kpi2.count}`}
-              </div>
-
-              <div
-                className="bg-[#E2E8F0] rounded-lg flex items-center justify-center text-[#64748B] text-[11px] font-bold transition-all"
-                style={{ width: `${kpi3.goal > 0 ? (kpi3.remainingVacancies / kpi3.goal) * 100 : 0}%` }}
-                title={`Vagas Livres: ${kpi3.remainingVacancies}`}
-              >
-                {kpi3.remainingVacancies > 30 && `${kpi3.remainingVacancies} livres`}
-              </div>
-            </>
-          )}
+          <div
+            className="bg-[#E2E8F0] rounded-lg flex items-center justify-center text-[#64748B] text-[11px] font-bold transition-all"
+            style={{ width: `${kpi3.goal > 0 ? ((kpi3.remainingVacancies ?? 0) / kpi3.goal) * 100 : 0}%` }}
+            title={`Vagas Livres: ${kpi3.remainingVacancies ?? 0}`}
+          >
+            {(kpi3.remainingVacancies ?? 0) > 30 && `${kpi3.remainingVacancies ?? 0} livres`}
+          </div>
         </div>
       </div>
 
@@ -655,28 +594,16 @@ export default function GeneralDashboard() {
                     {item.name}
                   </td>
 
-                  <td className="py-2.5 px-3 text-center">
+                  <td className="py-2.5 px-3 text-center font-bold">
                     {item.isNewOnly ? (
                       <span className="text-[#94A3B8] font-bold">—</span>
                     ) : (
-                      <div className="inline-flex items-center gap-1.5 font-bold">
-                        <span className="text-[#F45206]">{item.reenrolledCount}</span>
-                        <span className="text-[10px] text-[#4338CA] bg-[#EEF2FF] px-1.5 py-0.2 rounded font-extrabold">
-                          {item.reenrolledLPCount} Le Perini
-                        </span>
-                      </div>
+                      <span className="text-[#F45206]">{item.reenrolledCount}</span>
                     )}
                   </td>
 
                   <td className="py-2.5 px-3 text-center font-bold text-[#059669]">
-                    <div className="inline-flex items-center justify-center gap-1.5 font-bold">
-                      <span>{item.newCount}</span>
-                      {item.newLPCount > 0 && (
-                        <span className="text-[10px] text-[#4338CA] bg-[#EEF2FF] px-1.5 py-0.2 rounded font-extrabold">
-                          {item.newLPCount} Le Perini
-                        </span>
-                      )}
-                    </div>
+                    <span>{item.newCount}</span>
                   </td>
 
                   <td className="py-2.5 px-3 text-center font-black text-[#1E293B]">
@@ -758,7 +685,7 @@ export default function GeneralDashboard() {
           </div>
 
           {/* Cards Resumidos de Status da Turma */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <div className="p-3 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0]">
               <span className="text-[10px] font-extrabold uppercase text-[#047857] block">
                 Matriculados
@@ -774,15 +701,6 @@ export default function GeneralDashboard() {
               </span>
               <span className="text-[20px] font-black text-[#92400E] leading-none">
                 {gradePendingCount}
-              </span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-[#EEF2FF] border border-[#C7D2FE]">
-              <span className="text-[10px] font-extrabold uppercase text-[#4338CA] block">
-                Le Perini
-              </span>
-              <span className="text-[20px] font-black text-[#3730A3] leading-none">
-                {gradeLPCount}
               </span>
             </div>
 
@@ -839,20 +757,6 @@ export default function GeneralDashboard() {
                   {gradePendingCount}
                 </span>
               </button>
-              <button
-                type="button"
-                onClick={() => setStudentStatusFilter('lp')}
-                className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 ${
-                  studentStatusFilter === 'lp'
-                    ? 'bg-[#4338CA] text-white shadow-xs'
-                    : 'text-[#4338CA] hover:bg-[#EEF2FF]'
-                }`}
-              >
-                <span>Le Perini</span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${studentStatusFilter === 'lp' ? 'bg-white/20' : 'bg-[#E0E7FF]'}`}>
-                  {gradeLPCount}
-                </span>
-              </button>
             </div>
 
             {/* Campo de Busca Rápida por Nome ou RM */}
@@ -884,7 +788,7 @@ export default function GeneralDashboard() {
                 <tr className="border-b border-[#E2E8F0] text-[10.5px] font-black text-[#64748B] uppercase tracking-wider">
                   <th className="py-2.5 px-3.5">Aluno</th>
                   <th className="py-2.5 px-3 text-center">RM</th>
-                  <th className="py-2.5 px-3 text-center">Origem</th>
+                  <th className="py-2.5 px-3 text-center">Tipo</th>
                   <th className="py-2.5 px-3 text-center">Desconto</th>
                   <th className="py-2.5 px-3 text-right">Situação</th>
                 </tr>
@@ -916,15 +820,15 @@ export default function GeneralDashboard() {
                         {st.rm}
                       </td>
 
-                      {/* Origem */}
+                      {/* Tipo: Aluno Novo ou Rematrícula */}
                       <td className="py-2.5 px-3 text-center">
-                        {st.isLePerini ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold bg-[#EEF2FF] text-[#4338CA] border border-[#C7D2FE]">
-                            Le Perini
+                        {st.isNew ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
+                            Aluno Novo
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-[#F1F5F9] text-[#64748B]">
-                            Geral
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10.5px] font-extrabold bg-[#FFF0E6] text-[#F45206] border border-[#FFD9C2]">
+                            Rematrícula
                           </span>
                         )}
                       </td>

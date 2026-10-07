@@ -603,8 +603,8 @@ export function AppProvider({ children }) {
   const [activeTab, setActiveTab] = useState('rematricula');
   const [classes, setClasses] = useState(ALL_CLASSES_2027 && ALL_CLASSES_2027.length > 0 ? ALL_CLASSES_2027 : INITIAL_CLASSES);
 
-  // Cache Buster para garantir percentuais e valores oficiais com suporte pleno a edições manuais e parcelas iguais
-  const DB_VERSION = 'rodin_2027_v24_equal_installments_and_first_parcel_fix';
+  // Cache Buster para garantir percentuais, responsáveis vinculados e rematrículas atualizadas
+  const DB_VERSION = 'rodin_2027_v25_guardians_supabase_sync_and_24_reenrolled';
   try {
     if (typeof window !== 'undefined' && localStorage.getItem('rodin_db_version') !== DB_VERSION) {
       localStorage.removeItem('rodin_students');
@@ -626,9 +626,18 @@ export function AppProvider({ children }) {
           return parsed.map(s => {
             const enr = (ALL_ENROLLMENTS_2027 || []).find(e => e.rmNumber === s.rmNumber || e.cocCode === s.cocCode);
             const officialStd = (ALL_STUDENTS_2027 || []).find(os => os.rmNumber === s.rmNumber || os.cocCode === s.cocCode);
+            const finalGuardians = (s.guardians && Array.isArray(s.guardians) && s.guardians.length > 0)
+              ? s.guardians
+              : (officialStd?.guardians || []);
+            const primaryG = finalGuardians[0] || {};
             return {
               ...(officialStd || {}),
               ...s,
+              guardians: finalGuardians,
+              guardianName: primaryG.guardianName || primaryG.name || s.guardianName || officialStd?.guardianName || '',
+              guardianCpf: primaryG.guardianCpf || primaryG.cpf || s.guardianCpf || officialStd?.guardianCpf || '',
+              guardianEmail: primaryG.guardianEmail || primaryG.email || s.guardianEmail || officialStd?.guardianEmail || '',
+              guardianPhone: primaryG.guardianPhone || primaryG.phoneMobile || s.guardianPhone || officialStd?.guardianPhone || '',
               currentGrade: s.currentGrade || officialStd?.currentGrade,
               serie_ano_atual: s.serie_ano_atual || officialStd?.serie_ano_atual || officialStd?.currentGrade,
               nova_serie_ano_2027: s.nova_serie_ano_2027 || officialStd?.nova_serie_ano_2027 || officialStd?.newGrade2027,

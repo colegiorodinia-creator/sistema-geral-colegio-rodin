@@ -3,6 +3,8 @@
  * Gerenciamento de fotos de perfil (bucket 'avatars') e sincronização de dados (public.profiles).
  */
 
+import { ALL_STUDENTS_2027 } from '../data/initialData2027';
+
 const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
 
@@ -308,16 +310,66 @@ export async function fetchContractsFromSupabase() {
 }
 
 /**
- * Carrega a base consolidada do Supabase (estudantes + matrículas + contratos vinculados).
+ * Busca todos os responsáveis cadastrados na tabela public.guardians do Supabase.
+ */
+export async function fetchGuardiansFromSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/guardians?select=*&limit=3000`, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (err) {
+    console.warn('Erro ao buscar responsáveis do Supabase:', err);
+  }
+  return null;
+}
+
+/**
+ * Busca todos os vínculos de alunos com responsáveis da tabela public.student_guardians do Supabase.
+ */
+export async function fetchStudentGuardiansFromSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/student_guardians?select=*&limit=3000`, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      }
+    });
+
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (err) {
+    console.warn('Erro ao buscar vínculos de responsáveis do Supabase:', err);
+  }
+  return null;
+}
+
+/**
+ * Carrega a base consolidada do Supabase (estudantes + responsáveis vinculados + matrículas + contratos).
  */
 export async function fetchFullDatabaseData() {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
 
   try {
-    const [dbStudents, dbEnrollments, dbContracts] = await Promise.all([
+    const [dbStudents, dbEnrollments, dbContracts, dbGuardians, dbStudentGuardians] = await Promise.all([
       fetchStudentsFromSupabase(),
       fetchEnrollmentsFromSupabase(),
-      fetchContractsFromSupabase()
+      fetchContractsFromSupabase(),
+      fetchGuardiansFromSupabase(),
+      fetchStudentGuardiansFromSupabase()
     ]);
 
     if (!Array.isArray(dbStudents) || dbStudents.length === 0) {
@@ -340,10 +392,94 @@ export async function fetchFullDatabaseData() {
       });
     }
 
-    // Mapear estudantes enriquecidos com dados de matrícula e contrato
+    // Mapa de Responsáveis por ID
+    const guardiansById = new Map();
+    if (Array.isArray(dbGuardians)) {
+      dbGuardians.forEach(g => guardiansById.set(g.id, g));
+    }
+
+    // Mapa de Responsáveis por ID do Estudante
+    const guardiansByStudentId = new Map();
+    if (Array.isArray(dbStudentGuardians)) {
+      dbStudentGuardians.forEach(sg => {
+        const g = guardiansById.get(sg.guardian_id);
+        if (g) {
+          if (!guardiansByStudentId.has(sg.student_id)) {
+            guardiansByStudentId.set(sg.student_id, []);
+          }
+          guardiansByStudentId.get(sg.student_id).push({
+            ...g,
+            isFinancialResponsible: sg.is_financial_responsible ?? true,
+            isPedagogicalResponsible: sg.is_pedagogical_responsible ?? true
+          });
+        }
+      });
+    }
+
+    // Mapear estudantes enriquecidos com responsáveis, matrículas e contratos
     const mappedStudents = dbStudents.map(s => {
       const enr = enrollmentsByStudentId.get(s.id);
       const contract = (enr && contractsByEnrollmentId.get(enr.id)) || contractsByStudentId.get(s.id);
+      const officialStd = (ALL_STUDENTS_2027 || []).find(os => 
+        String(os.rmNumber) === String(s.rm_number) || 
+        String(os.cocCode) === String(s.coc_code)
+      );
+
+      // Vincular responsáveis vindos do Supabase com fallback seguro para ALL_STUDENTS_2027
+      const rawGuardians = guardiansByStudentId.get(s.id) || [];
+      let finalGuardians = [];
+
+      if (rawGuardians.length > 0) {
+        finalGuardians = rawGuardians.map((g, idx) => ({
+          id: g.id || `g-${s.rm_number}-${idx + 1}`,
+          name: g.name,
+          guardianName: g.name,
+          kinshipRelation: g.kinship_relation || 'Pai',
+          guardianRelation: g.kinship_relation || 'Pai',
+          gender: g.gender || (g.kinship_relation === 'Mãe' ? 'Fem.' : 'Masc.'),
+          guardianGender: g.gender || (g.kinship_relation === 'Mãe' ? 'Fem.' : 'Masc.'),
+          cpf: g.cpf,
+          guardianCpf: g.cpf,
+          rg: g.rg || '',
+          guardianRg: g.rg || '',
+          rgIssuer: g.rg_issuer || 'SSP/SP',
+          guardianRgIssuer: g.rg_issuer || 'SSP/SP',
+          birthDate: g.birth_date || '',
+          guardianBirthDate: g.birth_date || '',
+          occupation: g.occupation || '',
+          guardianOccupation: g.occupation || '',
+          maritalStatus: g.marital_status || 'Casado(a)',
+          guardianMaritalStatus: g.marital_status || 'Casado(a)',
+          nationality: g.nationality || 'Brasileiro(a)',
+          guardianNationality: g.nationality || 'Brasileiro(a)',
+          email: g.email || '',
+          guardianEmail: g.email || '',
+          phoneMobile: g.phone_mobile || '',
+          guardianPhone: g.phone_mobile || '',
+          phoneLandline: g.phone_landline || '',
+          guardianLandline: g.phone_landline || '',
+          addressCep: g.address_cep || '',
+          guardianAddressCep: g.address_cep || '',
+          addressStreet: g.address_street || '',
+          guardianAddressStreet: g.address_street || '',
+          addressNumber: g.address_number || '',
+          guardianAddressNumber: g.address_number || '',
+          addressComplement: g.address_complement || '',
+          guardianAddressComplement: g.address_complement || '',
+          addressNeighborhood: g.address_neighborhood || '',
+          guardianAddressNeighborhood: g.address_neighborhood || '',
+          addressCity: g.address_city || 'Indaiatuba',
+          guardianAddressCity: g.address_city || 'Indaiatuba',
+          addressState: g.address_state || 'SP',
+          guardianAddressState: g.address_state || 'SP',
+          isFinancialResponsible: g.isFinancialResponsible ?? true,
+          isPedagogicalResponsible: g.isPedagogicalResponsible ?? true
+        }));
+      } else if (officialStd?.guardians && Array.isArray(officialStd.guardians)) {
+        finalGuardians = officialStd.guardians;
+      }
+
+      const primaryGuardian = finalGuardians[0] || {};
 
       let discountPct = 0;
       if (contract && contract.tuition_discount_percentage !== null && contract.tuition_discount_percentage !== undefined) {
@@ -372,8 +508,8 @@ export async function fetchFullDatabaseData() {
         courseLevel: s.course_level,
         currentGrade: s.current_grade,
         serie_ano_atual: s.current_grade,
-        nova_serie_ano_2027: enr?.new_grade || null,
-        newGrade2027: enr?.new_grade || null,
+        nova_serie_ano_2027: enr?.new_grade || officialStd?.nova_serie_ano_2027 || null,
+        newGrade2027: enr?.new_grade || officialStd?.newGrade2027 || null,
         classGroup: s.class_group,
         schoolShift: s.school_shift,
         schoolUnit: s.school_unit,
@@ -385,12 +521,18 @@ export async function fetchFullDatabaseData() {
         attendanceRate: s.attendance_rate,
         isLePerini: Boolean(s.is_le_perini),
         percentual_desconto_2027: discountPct,
-        valor_nominal_anuidade_2027: contract?.tuition_nominal_total || 34663.20,
-        valor_total_anuidade_2027: contract?.tuition_discount_total || contract?.tuition_gross_total || 34663.20,
-        valor_1a_parcela_2027: contract?.first_installment_value || null,
-        valor_demais_parcelas_2027: contract?.regular_installment_value || null,
-        tipo_desconto_2027: contract?.tuition_discount_type || (s.is_le_perini ? 'Parceria Le Perini' : null),
-        observacao_desconto_2027: contract?.tuition_discount_reason || null
+        valor_nominal_anuidade_2027: contract?.tuition_nominal_total || officialStd?.valor_nominal_anuidade_2027 || 34663.20,
+        valor_total_anuidade_2027: contract?.tuition_discount_total || contract?.tuition_gross_total || officialStd?.valor_total_anuidade_2027 || 34663.20,
+        valor_1a_parcela_2027: contract?.first_installment_value || officialStd?.valor_1a_parcela_2027 || null,
+        valor_demais_parcelas_2027: contract?.regular_installment_value || officialStd?.valor_demais_parcelas_2027 || null,
+        tipo_desconto_2027: contract?.tuition_discount_type || officialStd?.tipo_desconto_2027 || (s.is_le_perini ? 'Parceria Le Perini' : null),
+        observacao_desconto_2027: contract?.tuition_discount_reason || officialStd?.observacao_desconto_2027 || null,
+        // Responsáveis Financeiros e Pedagógicos totalmente vinculados
+        guardians: finalGuardians,
+        guardianName: primaryGuardian.guardianName || primaryGuardian.name || '',
+        guardianCpf: primaryGuardian.guardianCpf || primaryGuardian.cpf || '',
+        guardianEmail: primaryGuardian.guardianEmail || primaryGuardian.email || '',
+        guardianPhone: primaryGuardian.guardianPhone || primaryGuardian.phoneMobile || ''
       };
     });
 
@@ -405,6 +547,9 @@ export async function fetchFullDatabaseData() {
         discountPct = (val > 0 && val <= 1) ? Number((val * 100).toFixed(1)) : Number(val.toFixed(1));
       }
 
+      const primaryG = studentObj?.guardians?.[0] || {};
+      const statusFinal = (e.status === 'active' || e.school_contract_status === 'signed' || e.material_contract_status === 'signed') ? 'reenrolled' : e.status;
+
       return {
         id: e.id,
         enrollmentCode: e.enrollment_code,
@@ -417,7 +562,7 @@ export async function fetchFullDatabaseData() {
         currentGrade: e.current_grade || studentObj?.currentGrade,
         newGrade: e.new_grade || studentObj?.newGrade2027,
         classGroup: e.class_group || studentObj?.classGroup,
-        status: e.status,
+        status: statusFinal,
         schoolContractStatus: e.school_contract_status,
         materialContractStatus: e.material_contract_status,
         createdAt: e.created_at,
@@ -426,7 +571,11 @@ export async function fetchFullDatabaseData() {
         tuitionDiscountPercentage: discountPct,
         tuitionGrossTotal: contract?.tuition_gross_total || 34663.20,
         tuitionAnnualNominal: contract?.tuition_nominal_total || 34663.20,
-        tuitionDiscountTotal: contract?.tuition_discount_total || 34663.20
+        tuitionDiscountTotal: contract?.tuition_discount_total || 34663.20,
+        guardianName: primaryG.guardianName || primaryG.name || '',
+        guardianCpf: primaryG.guardianCpf || primaryG.cpf || '',
+        guardianEmail: primaryG.guardianEmail || primaryG.email || '',
+        guardianPhone: primaryG.guardianPhone || primaryG.phoneMobile || ''
       };
     });
 

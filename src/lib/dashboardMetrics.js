@@ -98,11 +98,6 @@ export const getTimeWindows = (comparisonMode, customStartDate = null, customEnd
 };
 
 export const classifyEnrollmentType = (enr, allStudents = []) => {
-  const gradeStr = String(enr.newGrade || enr.currentGrade || '').toLowerCase();
-  if (gradeStr.includes('6º') || gradeStr.includes('6o') || gradeStr.includes('6 ano') || gradeStr.includes('6ef')) {
-    return 'new';
-  }
-
   if (enr.isNewStudent === true || enr.enrollmentType === 'new' || enr.type === 'new') {
     return 'new';
   }
@@ -279,23 +274,18 @@ export const computeDashboardMetrics = ({
   const seriesBreakdown = RODIN_SERIES_LIST.map(series => {
     const capacity = Number(seriesCapacities[series.id] || series.defaultCapacity || 120);
 
-    // Estudantes reais pertencentes a esta série no banco
+    // Estudantes reais pertencentes a esta série de destino para 2027
     const inSeriesStudents = students.filter(std => {
-      if (series.id === '6ef') {
-        const cur = String(std.currentGrade || std.serie_ano_atual || '').toLowerCase();
-        return cur.includes('6º') || cur.includes('6o') || cur.includes('6 ano') || cur.includes('6ef');
-      }
-      const nextGrade = String(std.nova_serie_ano_2027 || std.newGrade2027 || '');
-      if (nextGrade) return matchesGradeFilter(nextGrade, series.name);
-      return matchesGradeFilter(std.currentGrade, series.name);
+      const targetGrade = std.nova_serie_ano_2027 || std.newGrade2027;
+      if (targetGrade) return matchesGradeFilter(targetGrade, series.name);
+      if (std.isNewStudent) return matchesGradeFilter(std.currentGrade, series.name);
+      return false;
     });
 
     const inSeriesEnrollments = mappedEnrollments.filter(e => {
-      if (series.id === '6ef') {
-        const cur = String(e.currentGrade || '').toLowerCase();
-        return cur.includes('6º') || cur.includes('6o') || cur.includes('6 ano') || cur.includes('6ef');
-      }
-      return matchesGradeFilter(e.newGrade || e.currentGrade, series.name);
+      const targetGrade = e.newGrade || (e.isNewStudent ? e.currentGrade : null);
+      if (!targetGrade) return false;
+      return matchesGradeFilter(targetGrade, series.name);
     });
 
     const confirmedEnrs = inSeriesEnrollments.filter(e => e.isConfirmed);
@@ -303,8 +293,8 @@ export const computeDashboardMetrics = ({
     const reenrolledLPCount = series.isNewOnly ? 0 : confirmedEnrs.filter(e => e.resolvedType === 'reenrollment' && e.isLePerini).length;
     const reenrolledRegularCount = Math.max(0, reenrolledCount - reenrolledLPCount);
 
-    const newCount = series.isNewOnly ? confirmedEnrs.length : confirmedEnrs.filter(e => e.resolvedType === 'new').length;
-    const newLPCount = series.isNewOnly ? confirmedEnrs.filter(e => e.isLePerini).length : confirmedEnrs.filter(e => e.resolvedType === 'new' && e.isLePerini).length;
+    const newCount = confirmedEnrs.filter(e => e.resolvedType === 'new').length;
+    const newLPCount = confirmedEnrs.filter(e => e.resolvedType === 'new' && e.isLePerini).length;
     const newRegularCount = Math.max(0, newCount - newLPCount);
 
     const totalConfirmed = reenrolledCount + newCount;
@@ -485,6 +475,7 @@ export const computeDashboardMetrics = ({
     // KPI 1: % de Alunos Rematriculados / Matriculados com Máscara Le Perini
     kpi1: {
       rate: Number(reenrollmentRate.toFixed(1)),
+      count: totalConfirmedReenrolled,
       confirmedCount: totalConfirmedReenrolled,
       totalEligible,
       prevRate: Number(prevReenrollmentRate.toFixed(1)),
@@ -547,8 +538,6 @@ export const getStudentsByGrade = (gradeName, allStudents = [], allEnrollments =
     return [];
   }
 
-  const isSixth = gradeName.includes('6º') || gradeName.includes('6 ano');
-
   const enrMap = new Map();
   allEnrollments.forEach(enr => {
     if (enr.studentId) enrMap.set(enr.studentId, enr);
@@ -557,17 +546,15 @@ export const getStudentsByGrade = (gradeName, allStudents = [], allEnrollments =
   });
 
   const matchingStudents = allStudents.filter(student => {
-    if (isSixth) {
-      const cur = String(student.currentGrade || student.serie_ano_atual || '').toLowerCase();
-      return cur.includes('6º') || cur.includes('6o') || cur.includes('6 ano') || cur.includes('6ef');
-    }
-
     const nextGrade = String(student.nova_serie_ano_2027 || student.newGrade2027 || '');
     if (nextGrade) {
       return matchesGradeFilter(nextGrade, gradeName);
     }
-    const cur = String(student.currentGrade || student.serie_ano_atual || '');
-    return matchesGradeFilter(cur, gradeName);
+    if (student.isNewStudent) {
+      const cur = String(student.currentGrade || student.serie_ano_atual || '');
+      return matchesGradeFilter(cur, gradeName);
+    }
+    return false;
   });
 
   return matchingStudents.map((student, idx) => {
@@ -579,9 +566,8 @@ export const getStudentsByGrade = (gradeName, allStudents = [], allEnrollments =
       ? enr.tuitionDiscountPercentage
       : (typeof student.percentual_desconto_2027 === 'number' ? student.percentual_desconto_2027 : (isLP ? 25.0 : 0));
 
-    const type = isSixth 
-      ? (isLP ? 'Novo (Le Perini)' : 'Novo (Geral)') 
-      : (classifyEnrollmentType(enr || {}, allStudents) === 'new' ? 'Aluno Novo' : 'Rematrícula');
+    const isNew = student.isNewStudent || classifyEnrollmentType(enr || {}, allStudents) === 'new';
+    const type = isNew ? 'Aluno Novo' : 'Rematrícula';
 
     return {
       id: student.id || `std-${rm}-${idx}`,
@@ -590,7 +576,7 @@ export const getStudentsByGrade = (gradeName, allStudents = [], allEnrollments =
       isLePerini: isLP,
       type,
       isConfirmed,
-      statusLabel: isConfirmed ? (isSixth ? 'Matriculado' : 'Rematriculado') : 'Pendente',
+      statusLabel: isConfirmed ? (isNew ? 'Matriculado' : 'Rematriculado') : 'Pendente',
       discountPercentage: Number(Number(discount).toFixed(1))
     };
   }).sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
