@@ -216,7 +216,7 @@ export default function GeneralDashboard() {
             >
               <option value="Todas as Séries">Todas as Séries</option>
               <optgroup label="Ensino Fundamental II">
-                <option value="6º Ano EF">6º Ano EF (Apenas Novos)</option>
+                <option value="6º Ano EF">6º Ano EF</option>
                 <option value="7º Ano EF">7º Ano EF</option>
                 <option value="8º Ano EF">8º Ano EF</option>
                 <option value="9º Ano EF">9º Ano EF</option>
@@ -359,7 +359,7 @@ export default function GeneralDashboard() {
             </div>
             <div className="flex items-center justify-between text-[10px] text-[#64748B]">
               <span>
-                {isSixthGradeSelected ? 'Inicia no 7º ano' : `${getComparisonLabel()} (${kpi1.prevRate}%)`}
+                {isSixthGradeSelected ? '—' : `${getComparisonLabel()} (${kpi1.prevRate}%)`}
               </span>
               {!isSixthGradeSelected && (
                 <span className="font-bold text-[#059669]">+{kpi1.delta}%</span>
@@ -657,9 +657,7 @@ export default function GeneralDashboard() {
 
                   <td className="py-2.5 px-3 text-center">
                     {item.isNewOnly ? (
-                      <span className="text-[10px] font-bold text-[#64748B] bg-[#F1F5F9] px-1.5 py-0.5 rounded">
-                        Inicia no 7º Ano
-                      </span>
+                      <span className="text-[#94A3B8] font-bold">—</span>
                     ) : (
                       <div className="inline-flex items-center gap-1.5 font-bold">
                         <span className="text-[#F45206]">{item.reenrolledCount}</span>
