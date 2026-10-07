@@ -203,33 +203,7 @@ export default function GeneralDashboard() {
 
         {/* Linha de Filtros */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {/* FILTRO 1: POR SÉRIE */}
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold text-[#64748B] uppercase tracking-wide flex items-center gap-1">
-              <GraduationCap size={12} className="text-[#F45206]" />
-              Série
-            </label>
-            <select
-              value={selectedGrade}
-              onChange={(e) => setSelectedGrade(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-[#CBD5E1] bg-white text-[12px] font-bold text-[#1E293B] focus:outline-none focus:border-[#F45206]"
-            >
-              <option value="Todas as Séries">Todas as Séries</option>
-              <optgroup label="Ensino Fundamental II">
-                <option value="6º Ano EF">6º Ano EF</option>
-                <option value="7º Ano EF">7º Ano EF</option>
-                <option value="8º Ano EF">8º Ano EF</option>
-                <option value="9º Ano EF">9º Ano EF</option>
-              </optgroup>
-              <optgroup label="Ensino Médio">
-                <option value="1ª Série EM">1ª Série EM</option>
-                <option value="2ª Série EM">2ª Série EM</option>
-                <option value="3ª Série EM (Terceirão)">3ª Série EM (Terceirão)</option>
-              </optgroup>
-            </select>
-          </div>
-
-          {/* FILTRO 2: POR SEGMENTO */}
+          {/* FILTRO 1: POR SEGMENTO */}
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold text-[#64748B] uppercase tracking-wide flex items-center gap-1">
               <Layers size={12} className="text-[#F45206]" />
@@ -237,12 +211,64 @@ export default function GeneralDashboard() {
             </label>
             <select
               value={selectedPeriodSegment}
-              onChange={(e) => setSelectedPeriodSegment(e.target.value)}
+              onChange={(e) => {
+                const newSegment = e.target.value;
+                setSelectedPeriodSegment(newSegment);
+                if (newSegment === 'Ensino Fundamental II' && (selectedGrade.includes('EM') || selectedGrade.includes('Série'))) {
+                  setSelectedGrade('Todas as Séries');
+                } else if (newSegment === 'Ensino Médio' && (selectedGrade.includes('EF') || selectedGrade.includes('Ano'))) {
+                  setSelectedGrade('Todas as Séries');
+                }
+              }}
               className="w-full px-3 py-2 rounded-xl border border-[#CBD5E1] bg-white text-[12px] font-bold text-[#1E293B] focus:outline-none focus:border-[#F45206]"
             >
               <option value="Todos os Segmentos">Todos os Segmentos</option>
               <option value="Ensino Fundamental II">Ensino Fundamental II (6º ao 9º)</option>
               <option value="Ensino Médio">Ensino Médio (1ª a 3ª Série)</option>
+            </select>
+          </div>
+
+          {/* FILTRO 2: POR SÉRIE */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold text-[#64748B] uppercase tracking-wide flex items-center gap-1">
+              <GraduationCap size={12} className="text-[#F45206]" />
+              Série
+            </label>
+            <select
+              value={selectedGrade}
+              onChange={(e) => {
+                const newGrade = e.target.value;
+                setSelectedGrade(newGrade);
+                if (newGrade !== 'Todas as Séries') {
+                  if (newGrade.includes('EF') || newGrade.includes('Ano')) {
+                    if (selectedPeriodSegment === 'Ensino Médio') {
+                      setSelectedPeriodSegment('Ensino Fundamental II');
+                    }
+                  } else if (newGrade.includes('EM') || newGrade.includes('Série')) {
+                    if (selectedPeriodSegment === 'Ensino Fundamental II') {
+                      setSelectedPeriodSegment('Ensino Médio');
+                    }
+                  }
+                }
+              }}
+              className="w-full px-3 py-2 rounded-xl border border-[#CBD5E1] bg-white text-[12px] font-bold text-[#1E293B] focus:outline-none focus:border-[#F45206]"
+            >
+              <option value="Todas as Séries">Todas as Séries</option>
+              {(selectedPeriodSegment === 'Todos os Segmentos' || selectedPeriodSegment === 'Ensino Fundamental II') && (
+                <optgroup label="Ensino Fundamental II">
+                  <option value="6º Ano EF">6º Ano EF</option>
+                  <option value="7º Ano EF">7º Ano EF</option>
+                  <option value="8º Ano EF">8º Ano EF</option>
+                  <option value="9º Ano EF">9º Ano EF</option>
+                </optgroup>
+              )}
+              {(selectedPeriodSegment === 'Todos os Segmentos' || selectedPeriodSegment === 'Ensino Médio') && (
+                <optgroup label="Ensino Médio">
+                  <option value="1ª Série EM">1ª Série EM</option>
+                  <option value="2ª Série EM">2ª Série EM</option>
+                  <option value="3ª Série EM (Terceirão)">3ª Série EM (Terceirão)</option>
+                </optgroup>
+              )}
             </select>
           </div>
 
