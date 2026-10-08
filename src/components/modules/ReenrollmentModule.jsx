@@ -1331,7 +1331,7 @@ export default function ReenrollmentModule() {
         firstInstallmentValue: formatted,
         regularInstallmentValue: formatted
       }));
-      showToast(`Parcelas padronizadas: ${count}x de R$ ${formatted}`);
+      showToast(`Parcelas iguais: ${count}x de R$ ${formatted}`);
     } else {
       // Desativar: volta à regra padrão Rodin (1ª parcela integral/nominal para custeio de 13º)
       const { firstInstallment, regularInstallment } = calculateRodinInstallments(
@@ -2955,12 +2955,12 @@ export default function ReenrollmentModule() {
                                     ? 'bg-[#15803D] text-white hover:bg-[#166534] shadow-xs'
                                     : 'bg-[#EEF2FF] text-[#4338CA] hover:bg-[#E0E7FF] border border-[#C7D2FE]'
                                 }`}
-                                title="Padronizar o valor da 1ª parcela com as demais parcelas"
+                                title={formData.isEqualInstallments ? "Parcelas iguais ativadas (clique para personalizar)" : "Igualar o valor da 1ª parcela com as demais parcelas"}
                               >
                                 {formData.isEqualInstallments && (
                                   <span className="w-1.5 h-1.5 rounded-full bg-white" />
                                 )}
-                                Padronizar Parcelas
+                                {formData.isEqualInstallments ? 'Parcelas iguais' : 'Igualar parcelas'}
                               </button>
                             )}
                           </div>
